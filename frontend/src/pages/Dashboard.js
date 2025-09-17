@@ -1,4 +1,3 @@
-// src/pages/Dashboard.js
 import React, { useState, useEffect } from 'react';
 import {
   Grid,
@@ -10,13 +9,14 @@ import {
   Alert,
   Box,
   Chip,
-  LinearProgress
+  LinearProgress,
+  Paper
 } from '@mui/material';
 import {
+  Assessment,
   TrendingUp,
   TrendingDown,
-  Assessment,
-  Warning
+  ShowChart
 } from '@mui/icons-material';
 
 import TradeCard from '../components/TradeCard';
@@ -32,6 +32,7 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [marketData, setMarketData] = useState(null);
   const [news, setNews] = useState([]);
+  const [loadingData, setLoadingData] = useState(true);
 
   // Default risk profile
   const defaultRiskProfile = {
@@ -42,26 +43,28 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    loadMarketStatus();
-    loadNews();
-    loadMarketData();
+    loadInitialData();
+  }, []);
+
+  useEffect(() => {
+    if (activeSymbol) {
+      loadMarketData();
+    }
   }, [activeSymbol]);
 
-  const loadMarketStatus = async () => {
+  const loadInitialData = async () => {
+    setLoadingData(true);
     try {
-      const status = await apiService.getMarketStatus();
-      setMarketStatus(status);
-    } catch (err) {
-      console.error('Error loading market status:', err);
-    }
-  };
-
-  const loadNews = async () => {
-    try {
-      const newsData = await apiService.getNews();
+      const [statusData, newsData] = await Promise.all([
+        apiService.getMarketStatus(),
+        apiService.getNews()
+      ]);
+      setMarketStatus(statusData);
       setNews(newsData.headlines.slice(0, 5));
     } catch (err) {
-      console.error('Error loading news:', err);
+      console.error('Error loading initial data:', err);
+    } finally {
+      setLoadingData(false);
     }
   };
 
@@ -77,6 +80,7 @@ const Dashboard = () => {
   const generateTradeIdea = async () => {
     setLoading(true);
     setError(null);
+    setTradeIdea(null);
     
     try {
       const result = await apiService.generateTradeIdea(activeSymbol, defaultRiskProfile);
@@ -90,12 +94,24 @@ const Dashboard = () => {
 
   const popularSymbols = ['NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'INFY', 'HDFCBANK'];
 
+  if (loadingData) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress size={60} />
+        <Typography variant="h6" sx={{ ml: 2 }}>Loading Doravaru Platform...</Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       {/* Market Status Bar */}
       <Card sx={{ mb: 3, bgcolor: marketStatus?.is_open ? '#1b5e20' : '#b71c1c' }}>
-        <CardContent sx={{ py: 1 }}>
+        <CardContent sx={{ py: 2 }}>
           <Grid container alignItems="center" spacing={2}>
+            <Grid item>
+              <ShowChart sx={{ mr: 1 }} />
+            </Grid>
             <Grid item>
               <Typography variant="h6">
                 Market Status: {marketStatus?.status || 'Loading...'}
@@ -104,7 +120,7 @@ const Dashboard = () => {
             <Grid item>
               <Typography variant="body2">
                 {marketStatus?.current_time ? 
-                  new Date(marketStatus.current_time).toLocaleTimeString() : 
+                  new Date(marketStatus.current_time).toLocaleString() : 
                   'Loading...'
                 }
               </Typography>
@@ -113,6 +129,14 @@ const Dashboard = () => {
               <Typography variant="body2" sx={{ ml: 2 }}>
                 Next Session: {marketStatus?.next_session || 'N/A'}
               </Typography>
+            </Grid>
+            <Grid item>
+              <Chip 
+                label="LIVE DEMO" 
+                color="warning" 
+                variant="filled"
+                size="small"
+              />
             </Grid>
           </Grid>
         </CardContent>
@@ -125,7 +149,7 @@ const Dashboard = () => {
           <Card sx={{ mb: 2 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Select Symbol for Analysis
+                Select Symbol for AI Analysis
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 {popularSymbols.map(symbol => (
@@ -135,6 +159,7 @@ const Dashboard = () => {
                     clickable
                     color={activeSymbol === symbol ? 'primary' : 'default'}
                     onClick={() => setActiveSymbol(symbol)}
+                    variant={activeSymbol === symbol ? 'filled' : 'outlined'}
                   />
                 ))}
               </Box>
@@ -152,6 +177,9 @@ const Dashboard = () => {
               ) : (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                   <CircularProgress />
+                  <Typography variant="body2" sx={{ ml: 2 }}>
+                    Loading market data...
+                  </Typography>
                 </Box>
               )}
             </CardContent>
@@ -163,10 +191,10 @@ const Dashboard = () => {
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs>
                   <Typography variant="h6">
-                    AI Trade Analysis
+                    🤖 AI Trade Analysis
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Generate comprehensive trade idea using AI analysis
+                    Generate comprehensive trade idea using advanced algorithms
                   </Typography>
                 </Grid>
                 <Grid item>
@@ -176,6 +204,12 @@ const Dashboard = () => {
                     onClick={generateTradeIdea}
                     disabled={loading}
                     startIcon={loading ? <CircularProgress size={20} /> : <Assessment />}
+                    sx={{
+                      background: 'linear-gradient(45deg, #00e676, #00bcd4)',
+                      '&:hover': {
+                        background: 'linear-gradient(45deg, #00c853, #0097a7)',
+                      }
+                    }}
                   >
                     {loading ? 'Analyzing...' : 'Generate Trade Idea'}
                   </Button>
@@ -186,7 +220,7 @@ const Dashboard = () => {
                 <Box sx={{ mt: 2 }}>
                   <LinearProgress />
                   <Typography variant="body2" sx={{ mt: 1 }}>
-                    Analyzing market data, technical indicators, and news sentiment...
+                    🔍 Analyzing market data, technical indicators, and news sentiment...
                   </Typography>
                 </Box>
               )}
@@ -205,18 +239,29 @@ const Dashboard = () => {
 
           {/* Trade Idea Card */}
           {tradeIdea && (
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <TradeCard tradeIdea={tradeIdea.trade_idea} validation={tradeIdea.validation} />
-              </CardContent>
-            </Card>
+            <Box sx={{ mb: 2 }}>
+              <TradeCard tradeIdea={tradeIdea.trade_idea} validation={tradeIdea.validation} />
+            </Box>
+          )}
+
+          {/* Placeholder for no trade idea */}
+          {!tradeIdea && !loading && (
+            <Paper sx={{ p: 3, mb: 2, textAlign: 'center', bgcolor: 'rgba(255,255,255,0.05)' }}>
+              <Assessment sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+              <Typography variant="h6" gutterBottom>
+                Ready for Analysis
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Select a symbol and click "Generate Trade Idea" to see AI-powered trading recommendations
+              </Typography>
+            </Paper>
           )}
 
           {/* News Panel */}
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Market News & Sentiment
+                📰 Market News & Sentiment
               </Typography>
               <NewsPanel news={news} />
             </CardContent>
