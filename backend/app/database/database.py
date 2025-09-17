@@ -2,12 +2,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import settings
 
-# Database engine
+# Database engine - SQLite for local development
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_size=20,
-    max_overflow=0,
-    pool_pre_ping=True
+    connect_args={"check_same_thread": False}  # Needed for SQLite
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

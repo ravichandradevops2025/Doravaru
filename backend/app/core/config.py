@@ -1,24 +1,26 @@
-# app/core/config.py
+import os
 from pydantic_settings import BaseSettings
 from typing import Optional
 
 class Settings(BaseSettings):
-    # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost/doravaru_db"
+    # Database - SQLite for simplicity
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./doravaru.db")
     
     # API Keys
-    OPENAI_API_KEY: str = "your-openai-api-key-here"
-    TWITTER_BEARER_TOKEN: Optional[str] = None
-    TRADINGVIEW_API_KEY: Optional[str] = None
-    
-    # Redis (for caching)
-    REDIS_URL: str = "redis://localhost:6379"
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "demo-key")
     
     # Security
-    SECRET_KEY: str = "your-secret-key-change-this-in-production"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
     
-    # Logging
-    LOG_LEVEL: str = "INFO"
+    # CORS - allow GitHub Pages domain
+    ALLOWED_ORIGINS: list = [
+        "http://localhost:3000",
+        "https://yourusername.github.io",  # Replace with your GitHub username
+        "https://*.github.io"
+    ]
+    
+    # Environment
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production")
     
     class Config:
         env_file = ".env"
