@@ -134,6 +134,17 @@
             padding: 12px 0; 
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
+        .api-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 0.9em;
+            z-index: 1000;
+        }
+        .api-status.live { background: #4caf50; }
+        .api-status.mock { background: #ff9800; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @media (max-width: 768px) { 
             .grid { grid-template-columns: 1fr; } 
@@ -143,10 +154,12 @@
     </style>
 </head>
 <body>
+    <div id="apiStatus" class="api-status mock">DEMO MODE</div>
+    
     <div class="container">
         <div class="header">
             <h1>🚀 Doravaru</h1>
-            <p>AI-Powered Stock Market Trading Platform</p>
+            <p>AI-Powered Stock Market Trading Platform with Live Data</p>
         </div>
 
         <div class="status-bar" id="status-bar">
@@ -155,7 +168,7 @@
                 <span id="current-time" style="margin-left: 20px;"></span>
             </div>
             <div>
-                <span style="background: #f44336; padding: 6px 15px; border-radius: 20px; font-size: 0.9em;">🔴 LIVE DEMO</span>
+                <span style="background: #f44336; padding: 6px 15px; border-radius: 20px; font-size: 0.9em;">🔴 LIVE DATA</span>
             </div>
         </div>
 
@@ -176,14 +189,14 @@
                 <div class="card">
                     <h3 id="chart-title">NIFTY - Live Market Data</h3>
                     <div class="chart-container" id="chart"></div>
-                    <div class="price-display" id="price">₹21,547.50 <span style="color: #4caf50; font-size: 0.5em;">+1.2%</span></div>
-                    <p style="text-align: center; color: #888;">Live Data • Volume: <span id="volume">2.5M</span></p>
+                    <div class="price-display" id="price">Loading...</div>
+                    <p style="text-align: center; color: #888;">Live Data • Volume: <span id="volume">-</span></p>
                 </div>
 
                 <div class="card">
                     <h3>🤖 AI Trade Idea Generator</h3>
-                    <p style="margin-bottom: 25px; color: #bbb;">Advanced algorithmic analysis with technical indicators</p>
-                    <button class="button" onclick="generateTrade()" id="trade-btn">
+                    <p style="margin-bottom: 25px; color: #bbb;">Real-time analysis with technical indicators and live market data</p>
+                    <button class="button" onclick="generateRealTrade()" id="trade-btn">
                         <span id="btn-text">Generate AI Trade Idea</span>
                     </button>
                     <div id="trade-result" style="margin-top: 30px;"></div>
@@ -234,18 +247,12 @@
         </div>
     </div>
 
+    <script src="api-config.js"></script>
     <script>
         let currentSymbol = 'NIFTY';
         let isGenerating = false;
-        
-        const stockData = {
-            'NIFTY': { base: 21547.50, current: 21547.50 },
-            'BANKNIFTY': { base: 46234.75, current: 46234.75 },
-            'RELIANCE': { base: 2847.30, current: 2847.30 },
-            'TCS': { base: 3624.75, current: 3624.75 },
-            'INFY': { base: 1678.90, current: 1678.90 },
-            'HDFCBANK': { base: 1589.25, current: 1589.25 }
-        };
+        let realMarketData = {};
+        let isUsingLiveData = false;
         
         function updateTime() {
             const now = new Date();
@@ -256,17 +263,82 @@
             document.getElementById('status-bar').className = isOpen ? 'status-bar' : 'status-bar closed';
         }
         
-        function selectSymbol(symbol) {
-            currentSymbol = symbol;
-            document.querySelectorAll('.symbol').forEach(el => el.classList.remove('active'));
-            event.target.classList.add('active');
-            document.getElementById('chart-title').textContent = symbol + ' - Live Market Data';
-            generateChart();
-            updatePrice();
-            document.getElementById('trade-result').innerHTML = '';
+        async function loadRealData() {
+            try {
+                console.log('Fetching live data for:', currentSymbol);
+                const data = await liveDataService.fetchLivePrice(currentSymbol);
+                realMarketData[currentSymbol] = data;
+                isUsingLiveData = true;
+                updateApiStatus('live');
+                generateRealChart(data);
+                updateRealPrice(data);
+                console.log('Live data loaded successfully');
+            } catch (error) {
+                console.error('Failed to load real data:', error);
+                isUsingLiveData = false;
+                updateApiStatus('mock');
+                generateMockChart();
+                updateMockPrice();
+            }
         }
         
-        function generateChart() {
+        function updateApiStatus(type) {
+            const statusEl = document.getElementById('apiStatus');
+            if (type === 'live') {
+                statusEl.textContent = '🟢 LIVE DATA';
+                statusEl.className = 'api-status live';
+            } else {
+                statusEl.textContent = '🟡 DEMO MODE';
+                statusEl.className = 'api-status mock';
+            }
+        }
+        
+        function generateRealChart(data) {
+            const chart = document.getElementById('chart');
+            chart.innerHTML = '';
+            
+            const prices = data.slice(-35);
+            const minPrice = Math.min(...prices.map(d => d.low));
+            const maxPrice = Math.max(...prices.map(d => d.high));
+            const priceRange = maxPrice - minPrice;
+            
+            prices.forEach((candle) => {
+                const bar = document.createElement('div');
+                bar.className = 'chart-bar';
+                
+                const height = Math.max(((candle.close - minPrice) / priceRange) * 250, 10);
+                const isGreen = candle.close >= candle.open;
+                
+                bar.style.height = height + 'px';
+                bar.style.backgroundColor = isGreen ? '#00e676' : '#f44336';
+                bar.style.opacity = '0.85';
+                
+                const time = new Date(candle.timestamp).toLocaleTimeString('en-IN', {
+                    hour: '2-digit', minute: '2-digit'
+                });
+                bar.title = `${time}\nO: ₹${candle.open.toFixed(2)}\nH: ₹${candle.high.toFixed(2)}\nL: ₹${candle.low.toFixed(2)}\nC: ₹${candle.close.toFixed(2)}`;
+                
+                chart.appendChild(bar);
+            });
+        }
+        
+        function updateRealPrice(data) {
+            if (!data || data.length === 0) return;
+            
+            const latest = data[data.length - 1];
+            const previous = data[data.length - 2] || latest;
+            
+            const changePercent = ((latest.close - previous.close) / previous.close * 100);
+            const color = changePercent >= 0 ? '#4caf50' : '#f44336';
+            const sign = changePercent >= 0 ? '+' : '';
+            
+            document.getElementById('price').innerHTML = 
+                `₹${latest.close.toFixed(2)} <span style="color: ${color}; font-size: 0.5em;">${sign}${changePercent.toFixed(2)}%</span>`;
+            
+            document.getElementById('volume').textContent = (latest.volume / 1000000).toFixed(1) + 'M';
+        }
+        
+        function generateMockChart() {
             const chart = document.getElementById('chart');
             chart.innerHTML = '';
             for(let i = 0; i < 35; i++) {
@@ -281,95 +353,176 @@
             }
         }
         
-        function updatePrice() {
-            const stock = stockData[currentSymbol];
+        function updateMockPrice() {
+            const basePrices = {
+                'NIFTY': 21547.50, 'BANKNIFTY': 46234.75, 'RELIANCE': 2847.30,
+                'TCS': 3624.75, 'INFY': 1678.90, 'HDFCBANK': 1589.25
+            };
+            const basePrice = basePrices[currentSymbol] || 1000;
             const change = (Math.random() - 0.5) * 4;
-            stock.current = stock.base * (1 + change / 100);
-            const changePercent = ((stock.current - stock.base) / stock.base * 100);
-            const color = changePercent >= 0 ? '#4caf50' : '#f44336';
-            const sign = changePercent >= 0 ? '+' : '';
+            const currentPrice = basePrice * (1 + change / 100);
+            const color = change >= 0 ? '#4caf50' : '#f44336';
+            const sign = change >= 0 ? '+' : '';
+            
             document.getElementById('price').innerHTML = 
-                `₹${stock.current.toFixed(2)} <span style="color: ${color}; font-size: 0.5em;">${sign}${changePercent.toFixed(2)}%</span>`;
+                `₹${currentPrice.toFixed(2)} <span style="color: ${color}; font-size: 0.5em;">${sign}${change.toFixed(2)}%</span>`;
             document.getElementById('volume').textContent = (Math.random() * 8 + 2).toFixed(1) + 'M';
         }
         
-        async function generateTrade() {
+        function selectSymbol(symbol) {
+            currentSymbol = symbol;
+            document.querySelectorAll('.symbol').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('chart-title').textContent = symbol + ' - Live Market Data';
+            document.getElementById('trade-result').innerHTML = '';
+            loadRealData();
+        }
+        
+        async function generateRealTrade() {
             if (isGenerating) return;
+            
             isGenerating = true;
             const btn = document.getElementById('trade-btn');
             const btnText = document.getElementById('btn-text');
+            
             btn.disabled = true;
-            btnText.innerHTML = '<span class="loading"></span> Analyzing Market Data...';
+            btnText.innerHTML = '<span class="loading"></span> Fetching Live Data...';
             
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const scenarios = [
-                { type: 'BUY', confidence: Math.floor(Math.random() * 25) + 70, color: '#4caf50' },
-                { type: 'SELL', confidence: Math.floor(Math.random() * 20) + 65, color: '#f44336' },
-                { type: 'HOLD', confidence: Math.floor(Math.random() * 15) + 55, color: '#ff9800' }
-            ];
-            
-            const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
-            const currentPrice = stockData[currentSymbol].current;
-            
-            let entry, stopLoss, target1, target2;
-            if (scenario.type === 'BUY') {
-                entry = currentPrice * 1.001;
-                stopLoss = currentPrice * 0.985;
-                target1 = currentPrice * 1.025;
-                target2 = currentPrice * 1.045;
-            } else if (scenario.type === 'SELL') {
-                entry = currentPrice * 0.999;
-                stopLoss = currentPrice * 1.015;
-                target1 = currentPrice * 0.975;
-                target2 = currentPrice * 0.955;
-            } else {
-                entry = currentPrice;
-                stopLoss = currentPrice * 0.99;
-                target1 = currentPrice * 1.015;
-                target2 = currentPrice * 1.025;
+            try {
+                let data;
+                if (isUsingLiveData && realMarketData[currentSymbol]) {
+                    data = realMarketData[currentSymbol];
+                } else {
+                    data = await liveDataService.fetchLivePrice(currentSymbol);
+                    realMarketData[currentSymbol] = data;
+                }
+                
+                btnText.innerHTML = '<span class="loading"></span> Analyzing Technical Indicators...';
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                const analysis = technicalAnalyzer.generateSignal(data);
+                const currentPrice = data[data.length - 1].close;
+                
+                let entry, stopLoss, target1, target2;
+                if (analysis.signal === 'BUY') {
+                    entry = currentPrice * 1.001;
+                    stopLoss = currentPrice * 0.985;
+                    target1 = currentPrice * 1.025;
+                    target2 = currentPrice * 1.045;
+                } else if (analysis.signal === 'SELL') {
+                    entry = currentPrice * 0.999;
+                    stopLoss = currentPrice * 1.015;
+                    target1 = currentPrice * 0.975;
+                    target2 = currentPrice * 0.955;
+                } else {
+                    entry = currentPrice;
+                    stopLoss = currentPrice * 0.99;
+                    target1 = currentPrice * 1.015;
+                    target2 = currentPrice * 1.025;
+                }
+                
+                const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stopLoss);
+                const positionSize = Math.floor(2000 / Math.abs(entry - stopLoss));
+                
+                const signalColor = analysis.signal === 'BUY' ? '#4caf50' : 
+                                  analysis.signal === 'SELL' ? '#f44336' : '#ff9800';
+                
+                document.getElementById('trade-result').innerHTML = `
+                    <div class="trade-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h4 style="color: ${signalColor}; font-size: 1.4em;">
+                                ${currentSymbol} - ${analysis.signal} Signal
+                            </h4>
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.9em; color: #888;">Confidence</div>
+                                <div style="font-size: 1.8em; font-weight: bold; color: ${signalColor};">${analysis.confidence}%</div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin: 20px 0;">
+                            <div style="text-align: center; padding: 15px; background: rgba(0,230,118,0.1); border-radius: 8px;">
+                                <div style="color: #888; font-size: 0.9em;">Entry</div>
+                                <div style="font-size: 1.4em; font-weight: bold; color: #00e676;">₹${entry.toFixed(2)}</div>
+                            </div>
+                            <div style="text-align: center; padding: 15px; background: rgba(244,67,54,0.1); border-radius: 8px;">
+                                <div style="color: #888; font-size: 0.9em;">Stop Loss</div>
+                                <div style="font-size: 1.4em; font-weight: bold; color: #f44336;">₹${stopLoss.toFixed(2)}</div>
+                            </div>
+                            <div style="text-align: center; padding: 15px; background: rgba(76,175,80,0.1); border-radius: 8px;">
+                                <div style="color: #888; font-size: 0.9em;">Target 1</div>
+                                <div style="font-size: 1.4em; font-weight: bold; color: #4caf50;">₹${target1.toFixed(2)}</div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+                            <div>
+                                <div class="metric">
+                                    <span>Position Size:</span>
+                                    <span>${positionSize} shares</span>
+                                </div>
+                                <div class="metric">
+                                    <span>Risk/Reward:</span>
+                                    <span style="color: #4caf50;">1:${riskReward.toFixed(1)}</span>
+                                </div>
+                                <div class="metric">
+                                    <span>Target 2:</span>
+                                    <span>₹${target2.toFixed(2)}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="metric">
+                                    <span>RSI:</span>
+                                    <span>${analysis.indicators.rsi}</span>
+                                </div>
+                                <div class="metric">
+                                    <span>SMA20:</span>
+                                    <span>₹${analysis.indicators.sma20}</span>
+                                </div>
+                                <div class="metric">
+                                    <span>Current Price:</span>
+                                    <span>₹${analysis.indicators.currentPrice}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                            <strong style="color: ${signalColor};">Technical Analysis:</strong><br>
+                            ${analysis.reasons.map(reason => `• ${reason}`).join('<br>')}
+                        </div>
+                        
+                        <div style="margin-top: 15px; padding: 10px; background: rgba(0,230,118,0.1); border-radius: 6px; text-align: center;">
+                            <small>${isUsingLiveData ? '📡 Based on Live Market Data' : '⚠️ Based on Demo Data'}</small>
+                        </div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Error generating trade:', error);
+                document.getElementById('trade-result').innerHTML = `
+                    <div style="color: #f44336; padding: 15px; background: rgba(244,67,54,0.1); border-radius: 8px;">
+                        <strong>Error:</strong> Unable to fetch live data. Using demo mode.
+                    </div>
+                `;
+                updateMockPrice();
+                generateMockChart();
             }
-            
-            const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stopLoss);
-            const positionSize = Math.floor(2000 / Math.abs(entry - stopLoss));
-            
-            document.getElementById('trade-result').innerHTML = `
-                <div class="trade-card">
-                    <h4 style="color: ${scenario.color}; margin-bottom: 15px;">
-                        ${currentSymbol} - ${scenario.type} Signal (${scenario.confidence}% Confidence)
-                    </h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin: 20px 0;">
-                        <div style="text-align: center; padding: 15px; background: rgba(0,230,118,0.1); border-radius: 8px;">
-                            <div style="color: #888; font-size: 0.9em;">Entry</div>
-                            <div style="font-size: 1.4em; font-weight: bold; color: #00e676;">₹${entry.toFixed(2)}</div>
-                        </div>
-                        <div style="text-align: center; padding: 15px; background: rgba(244,67,54,0.1); border-radius: 8px;">
-                            <div style="color: #888; font-size: 0.9em;">Stop Loss</div>
-                            <div style="font-size: 1.4em; font-weight: bold; color: #f44336;">₹${stopLoss.toFixed(2)}</div>
-                        </div>
-                        <div style="text-align: center; padding: 15px; background: rgba(76,175,80,0.1); border-radius: 8px;">
-                            <div style="color: #888; font-size: 0.9em;">Target 1</div>
-                            <div style="font-size: 1.4em; font-weight: bold; color: #4caf50;">₹${target1.toFixed(2)}</div>
-                        </div>
-                    </div>
-                    <div class="metric"><span>Position Size:</span><span>${positionSize} shares</span></div>
-                    <div class="metric"><span>Risk/Reward:</span><span style="color: #4caf50;">1:${riskReward.toFixed(1)}</span></div>
-                    <div class="metric"><span>Target 2:</span><span>₹${target2.toFixed(2)}</span></div>
-                    <div style="margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 6px;">
-                        <strong>AI Analysis:</strong> Technical indicators show ${scenario.type.toLowerCase()}ish momentum with ${riskReward >= 2 ? 'excellent' : 'good'} risk-reward ratio.
-                    </div>
-                </div>
-            `;
             
             btn.disabled = false;
             btnText.textContent = 'Generate New Trade Idea';
             isGenerating = false;
         }
         
+        // Initialize
         updateTime();
-        generateChart();
+        loadRealData();
+        
+        // Update intervals
         setInterval(updateTime, 1000);
-        setInterval(() => { if (!isGenerating) { generateChart(); updatePrice(); } }, 8000);
+        setInterval(() => {
+            if (!isGenerating) {
+                loadRealData();
+            }
+        }, 120000); // Update every 2 minutes to respect API limits
     </script>
 </body>
 </html>
