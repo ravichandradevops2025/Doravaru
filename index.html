@@ -3,516 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doravaru - AI Trading Platform</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: linear-gradient(135deg, #0a0e27 0%, #1a1d3a 100%); 
-            color: white; 
-            min-height: 100vh;
-        }
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-        .header { 
-            background: linear-gradient(45deg, #00e676, #00bcd4); 
-            padding: 30px; 
-            border-radius: 20px; 
-            margin-bottom: 30px; 
-            text-align: center;
-            box-shadow: 0 10px 40px rgba(0, 230, 118, 0.3);
-        }
-        .header h1 { font-size: 3em; margin-bottom: 15px; color: #000; font-weight: 700; }
-        .header p { font-size: 1.3em; color: #333; font-weight: 500; }
-        .status-bar { 
-            background: linear-gradient(135deg, #1b5e20, #2e7d32); 
-            padding: 20px; 
-            border-radius: 15px; 
-            margin-bottom: 25px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-        }
-        .status-bar.closed { background: linear-gradient(135deg, #b71c1c, #d32f2f); }
-        .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-bottom: 30px; }
-        .card { 
-            background: rgba(26, 29, 58, 0.95); 
-            padding: 30px; 
-            border-radius: 20px; 
-            margin-bottom: 25px; 
-            border: 1px solid rgba(0, 230, 118, 0.2);
-            transition: all 0.4s ease;
-        }
-        .card:hover { transform: translateY(-5px); border-color: rgba(0, 230, 118, 0.4); }
-        .symbol { 
-            display: inline-block; 
-            background: rgba(255, 255, 255, 0.1); 
-            padding: 15px 25px; 
-            margin: 10px; 
-            border-radius: 30px; 
-            cursor: pointer; 
-            transition: all 0.3s ease;
-            border: 2px solid transparent;
-            font-weight: 600;
-        }
-        .symbol:hover { background: rgba(0, 230, 118, 0.2); transform: translateY(-3px); }
-        .symbol.active { 
-            background: linear-gradient(45deg, #00e676, #00bcd4); 
-            color: black; 
-            font-weight: bold;
-            border: 2px solid #00e676;
-        }
-        .chart-container { 
-            height: 350px; 
-            background: rgba(45, 55, 72, 0.9); 
-            border-radius: 15px; 
-            padding: 25px; 
-            display: flex; 
-            align-items: end; 
-            overflow: hidden;
-        }
-        .chart-bar { 
-            width: 10px; 
-            margin: 2px; 
-            border-radius: 3px; 
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        .chart-bar:hover { opacity: 1 !important; transform: scaleY(1.1); }
-        .price-display { 
-            font-size: 3em; 
-            font-weight: 700; 
-            color: #00e676; 
-            margin: 20px 0;
-            text-align: center;
-        }
-        .button { 
-            background: linear-gradient(45deg, #00e676, #00bcd4); 
-            color: black; 
-            padding: 18px 35px; 
-            border: none; 
-            border-radius: 15px; 
-            cursor: pointer; 
-            font-size: 1.2em;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-        }
-        .button:hover { transform: translateY(-3px); filter: brightness(1.1); }
-        .button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .trade-card { 
-            border: 3px solid #00e676; 
-            background: linear-gradient(135deg, rgba(0, 230, 118, 0.1), rgba(0, 188, 212, 0.1));
-        }
-        .news-item { 
-            padding: 18px; 
-            background: rgba(255, 255, 255, 0.08); 
-            border-radius: 12px; 
-            margin: 15px 0;
-            border-left: 5px solid #00e676;
-        }
-        .disclaimer { 
-            background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), rgba(255, 152, 0, 0.15)); 
-            border: 2px solid #ff9800; 
-            border-radius: 15px;
-            padding: 25px;
-            margin-top: 30px;
-            text-align: center;
-        }
-        .loading { 
-            display: inline-block; 
-            width: 25px; 
-            height: 25px; 
-            border: 3px solid rgba(255,255,255,0.3); 
-            border-top: 3px solid #00e676; 
-            border-radius: 50%; 
-            animation: spin 1s linear infinite;
-        }
-        .metric { 
-            display: flex; 
-            justify-content: space-between; 
-            padding: 12px 0; 
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .api-status {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 10px 15px;
-            border-radius: 10px;
-            font-size: 0.9em;
-            z-index: 1000;
-            background: #4caf50;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @media (max-width: 768px) { 
-            .grid { grid-template-columns: 1fr; } 
-            .header h1 { font-size: 2.2em; }
-            .container { padding: 15px; }
-        }
-    </style>
+    <title>Doravaru - Professional Trading Platform</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <link href="styles.css" rel="stylesheet">
 </head>
 <body>
-    <div id="apiStatus" class="api-status">🟢 CURRENT PRICES</div>
-    
-    <div class="container">
-        <div class="header">
-            <h1>🚀 Doravaru</h1>
-            <p>AI-Powered Stock Market Trading Platform</p>
-        </div>
-
-        <div class="status-bar" id="status-bar">
-            <div>
-                <strong>📊 Market Status: <span id="market-status">OPEN</span></strong>
-                <span id="current-time"></span>
-            </div>
-            <div>
-                <span style="background: #4caf50; padding: 6px 15px; border-radius: 20px; font-size: 0.9em;">🟢 ACCURATE PRICES</span>
-            </div>
-        </div>
-
-        <div class="grid">
-            <div class="main-content">
-                <div class="card">
-                    <h3>📈 Select Stock for AI Analysis</h3>
-                    <div id="symbols">
-                        <span class="symbol active" onclick="selectSymbol('NIFTY')">NIFTY</span>
-                        <span class="symbol" onclick="selectSymbol('BANKNIFTY')">BANKNIFTY</span>
-                        <span class="symbol" onclick="selectSymbol('RELIANCE')">RELIANCE</span>
-                        <span class="symbol" onclick="selectSymbol('TCS')">TCS</span>
-                        <span class="symbol" onclick="selectSymbol('INFY')">INFY</span>
-                        <span class="symbol" onclick="selectSymbol('HDFCBANK')">HDFCBANK</span>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h3 id="chart-title">NIFTY - Current Market Data</h3>
-                    <div class="chart-container" id="chart"></div>
-                    <div class="price-display" id="price">₹25,420.45 <span style="color: #4caf50; font-size: 0.5em;">+0.8%</span></div>
-                    <p style="text-align: center; color: #888;">Current Data • Volume: <span id="volume">2.1M</span></p>
-                </div>
-
-                <div class="card">
-                    <h3>🤖 AI Trade Idea Generator</h3>
-                    <p style="margin-bottom: 25px; color: #bbb;">Technical analysis based on current market levels</p>
-                    <button class="button" onclick="generateTrade()" id="trade-btn">
-                        <span id="btn-text">Generate AI Trade Idea</span>
-                    </button>
-                    <div id="trade-result" style="margin-top: 30px;"></div>
-                </div>
-            </div>
-
-            <div class="sidebar">
-                <div class="card">
-                    <h3>📰 Market Intelligence</h3>
-                    <div class="news-item">
-                        <strong>Markets rally on strong institutional buying</strong><br>
-                        <small style="color: #4caf50;">Bullish Sentiment (+0.8)</small>
-                    </div>
-                    <div class="news-item">
-                        <strong>Banking sector shows quarterly growth</strong><br>
-                        <small style="color: #ff9800;">Neutral Sentiment (+0.3)</small>
-                    </div>
-                    <div class="news-item">
-                        <strong>Global markets mixed on policy concerns</strong><br>
-                        <small style="color: #f44336;">Bearish Sentiment (-0.4)</small>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h3>💼 Portfolio Dashboard</h3>
-                    <div class="metric">
-                        <span>Total Capital:</span>
-                        <span style="color: #00e676;">₹1,00,000</span>
-                    </div>
-                    <div class="metric">
-                        <span>Risk Per Trade:</span>
-                        <span>2.0%</span>
-                    </div>
-                    <div class="metric">
-                        <span>Available Margin:</span>
-                        <span style="color: #4caf50;">₹98,000</span>
-                    </div>
-                    <div class="metric">
-                        <span>Active Positions:</span>
-                        <span>0</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="disclaimer">
-            <p><strong>⚠️ DISCLAIMER:</strong> This platform provides educational analysis only and is not investment advice.</p>
-        </div>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Loading Professional Trading Platform...</p>
     </div>
 
-    <script>
-        // Current market prices
-        const MARKET_PRICES = {
-            'NIFTY': 25420.45,
-            'BANKNIFTY': 55715.15,
-            'RELIANCE': 1424.00,
-            'TCS': 4087.30,
-            'INFY': 1854.25,
-            'HDFCBANK': 1781.40
-        };
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>Doravaru</h1>
+            <span class="nav-subtitle">Professional Trading Platform</span>
+        </div>
+        <div class="nav-status">
+            <div id="connection-status" class="status-indicator connected">
+                <div class="status-dot"></div>
+                <span>Market Data Connected</span>
+            </div>
+            <div class="market-time" id="market-time">NSE: OPEN</div>
+        </div>
+    </nav>
 
-        let currentSymbol = 'NIFTY';
-        let isGenerating = false;
-        
-        // Live Data Service
-        class LiveDataService {
-            async fetchLivePrice(symbol) {
-                const basePrice = MARKET_PRICES[symbol] || 1000;
-                return this.generateRealisticData(basePrice, symbol);
-            }
-            
-            generateRealisticData(basePrice, symbol) {
-                const data = [];
-                let price = basePrice;
-                
-                for (let i = 99; i >= 0; i--) {
-                    const timestamp = new Date(Date.now() - i * 60000);
-                    const hour = timestamp.getHours();
-                    
-                    let volatility = 0.001;
-                    if (hour === 9) volatility = 0.003;
-                    if (hour === 15) volatility = 0.002;
-                    if (hour >= 11 && hour <= 13) volatility = 0.0005;
-                    
-                    const change = (Math.random() - 0.5) * volatility;
-                    price = Math.max(price * (1 + change), basePrice * 0.99);
-                    
-                    const open = price;
-                    const high = price * (1 + Math.random() * volatility * 2);
-                    const low = price * (1 - Math.random() * volatility * 2);
-                    const close = low + Math.random() * (high - low);
-                    
-                    data.push({
-                        timestamp: timestamp.toISOString(),
-                        open: parseFloat(open.toFixed(2)),
-                        high: parseFloat(high.toFixed(2)),
-                        low: parseFloat(low.toFixed(2)),
-                        close: parseFloat(close.toFixed(2)),
-                        volume: Math.floor(Math.random() * 1000000) + 500000
-                    });
-                    
-                    price = close;
-                }
-                
-                return data;
-            }
-        }
-
-        // Technical Analyzer
-        class TechnicalAnalyzer {
-            calculateSMA(prices, period) {
-                if (prices.length < period) return null;
-                return prices.slice(-period).reduce((a, b) => a + b, 0) / period;
-            }
-            
-            calculateRSI(prices, period = 14) {
-                if (prices.length < period + 1) return 50;
-                const gains = [], losses = [];
-                for (let i = 1; i < prices.length; i++) {
-                    const change = prices[i] - prices[i - 1];
-                    gains.push(change > 0 ? change : 0);
-                    losses.push(change < 0 ? Math.abs(change) : 0);
-                }
-                const avgGain = gains.slice(-period).reduce((a, b) => a + b, 0) / period;
-                const avgLoss = losses.slice(-period).reduce((a, b) => a + b, 0) / period;
-                return avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
-            }
-            
-            generateSignal(data) {
-                const prices = data.map(d => d.close);
-                const current = prices[prices.length - 1];
-                const sma20 = this.calculateSMA(prices, 20);
-                const rsi = this.calculateRSI(prices);
-                
-                let signal = 'HOLD', confidence = 65;
-                
-                if (current > sma20 && rsi < 70) {
-                    signal = 'BUY';
-                    confidence = 78;
-                } else if (current < sma20 && rsi > 30) {
-                    signal = 'SELL';
-                    confidence = 73;
-                }
-                
-                return {
-                    signal,
-                    confidence,
-                    indicators: {
-                        rsi: rsi.toFixed(1),
-                        sma20: sma20?.toFixed(2),
-                        currentPrice: current.toFixed(2)
-                    },
-                    reasons: [
-                        `Price ₹${current.toFixed(2)} ${current > sma20 ? 'above' : 'below'} SMA20`,
-                        `RSI at ${rsi.toFixed(1)} shows ${rsi > 70 ? 'overbought' : rsi < 30 ? 'oversold' : 'neutral'} conditions`,
-                        `Technical bias leans ${signal.toLowerCase()}`
-                    ]
-                };
-            }
-        }
-
-        const liveDataService = new LiveDataService();
-        const technicalAnalyzer = new TechnicalAnalyzer();
-        let marketData = {};
-        
-        function updateTime() {
-            const now = new Date();
-            document.getElementById('current-time').textContent = now.toLocaleTimeString();
-            const hour = now.getHours();
-            const isOpen = hour >= 9 && hour < 15.5 && now.getDay() >= 1 && now.getDay() <= 5;
-            document.getElementById('market-status').textContent = isOpen ? 'OPEN' : 'CLOSED';
-            document.getElementById('status-bar').className = isOpen ? 'status-bar' : 'status-bar closed';
-        }
-        
-        async function loadMarketData() {
-            const data = await liveDataService.fetchLivePrice(currentSymbol);
-            marketData[currentSymbol] = data;
-            generateChart(data);
-            updatePrice(data);
-        }
-        
-        function generateChart(data) {
-            const chart = document.getElementById('chart');
-            chart.innerHTML = '';
-            
-            const prices = data.slice(-35);
-            const minPrice = Math.min(...prices.map(d => d.low));
-            const maxPrice = Math.max(...prices.map(d => d.high));
-            const priceRange = maxPrice - minPrice;
-            
-            prices.forEach((candle) => {
-                const bar = document.createElement('div');
-                bar.className = 'chart-bar';
-                
-                const height = Math.max(((candle.close - minPrice) / priceRange) * 250, 10);
-                const isGreen = candle.close >= candle.open;
-                
-                bar.style.height = height + 'px';
-                bar.style.backgroundColor = isGreen ? '#00e676' : '#f44336';
-                bar.style.opacity = '0.85';
-                
-                const time = new Date(candle.timestamp).toLocaleTimeString('en-IN', {
-                    hour: '2-digit', minute: '2-digit'
-                });
-                bar.title = `${time} - O:₹${candle.open.toFixed(2)} H:₹${candle.high.toFixed(2)} L:₹${candle.low.toFixed(2)} C:₹${candle.close.toFixed(2)}`;
-                
-                chart.appendChild(bar);
-            });
-        }
-        
-        function updatePrice(data) {
-            const latest = data[data.length - 1];
-            const previous = data[data.length - 2] || latest;
-            
-            const changePercent = ((latest.close - previous.close) / previous.close * 100);
-            const color = changePercent >= 0 ? '#4caf50' : '#f44336';
-            const sign = changePercent >= 0 ? '+' : '';
-            
-            document.getElementById('price').innerHTML = 
-                `₹${latest.close.toFixed(2)} <span style="color: ${color}; font-size: 0.5em;">${sign}${changePercent.toFixed(2)}%</span>`;
-            
-            document.getElementById('volume').textContent = (latest.volume / 1000000).toFixed(1) + 'M';
-        }
-        
-        function selectSymbol(symbol) {
-            currentSymbol = symbol;
-            document.querySelectorAll('.symbol').forEach(el => el.classList.remove('active'));
-            event.target.classList.add('active');
-            document.getElementById('chart-title').textContent = symbol + ' - Current Market Data';
-            document.getElementById('trade-result').innerHTML = '';
-            loadMarketData();
-        }
-        
-        async function generateTrade() {
-            if (isGenerating) return;
-            
-            isGenerating = true;
-            const btn = document.getElementById('trade-btn');
-            const btnText = document.getElementById('btn-text');
-            
-            btn.disabled = true;
-            btnText.innerHTML = '<span class="loading"></span> Analyzing...';
-            
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            const data = marketData[currentSymbol] || await liveDataService.fetchLivePrice(currentSymbol);
-            const analysis = technicalAnalyzer.generateSignal(data);
-            const currentPrice = data[data.length - 1].close;
-            
-            let entry, stopLoss, target1, target2;
-            if (analysis.signal === 'BUY') {
-                entry = currentPrice * 1.001;
-                stopLoss = currentPrice * 0.985;
-                target1 = currentPrice * 1.025;
-                target2 = currentPrice * 1.045;
-            } else if (analysis.signal === 'SELL') {
-                entry = currentPrice * 0.999;
-                stopLoss = currentPrice * 1.015;
-                target1 = currentPrice * 0.975;
-                target2 = currentPrice * 0.955;
-            } else {
-                entry = currentPrice;
-                stopLoss = currentPrice * 0.99;
-                target1 = currentPrice * 1.015;
-                target2 = currentPrice * 1.025;
-            }
-            
-            const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stopLoss);
-            const positionSize = Math.floor(2000 / Math.abs(entry - stopLoss));
-            
-            const signalColor = analysis.signal === 'BUY' ? '#4caf50' : 
-                              analysis.signal === 'SELL' ? '#f44336' : '#ff9800';
-            
-            document.getElementById('trade-result').innerHTML = `
-                <div class="trade-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h4 style="color: ${signalColor}; font-size: 1.4em;">
-                            ${currentSymbol} - ${analysis.signal} Signal
-                        </h4>
-                        <div style="text-align: right;">
-                            <div style="font-size: 0.9em; color: #888;">Confidence</div>
-                            <div style="font-size: 1.8em; font-weight: bold; color: ${signalColor};">${analysis.confidence}%</div>
-                        </div>
+    <div class="platform-container">
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <div class="watchlist-section">
+                <h3>Watchlist</h3>
+                <div class="symbol-grid" id="watchlist">
+                    <div class="symbol-card active" data-symbol="NIFTY">
+                        <div class="symbol-name">NIFTY 50</div>
+                        <div class="symbol-price" id="price-NIFTY">25,420.45</div>
+                        <div class="symbol-change positive" id="change-NIFTY">+0.85%</div>
                     </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin: 20px 0;">
-                        <div style="text-align: center; padding: 15px; background: rgba(0,230,118,0.1); border-radius: 8px;">
-                            <div style="color: #888; font-size: 0.9em;">Entry</div>
-                            <div style="font-size: 1.4em; font-weight: bold; color: #00e676;">₹${entry.toFixed(2)}</div>
-                        </div>
-                        <div style="text-align: center; padding: 15px; background: rgba(244,67,54,0.1); border-radius: 8px;">
-                            <div style="color: #888; font-size: 0.9em;">Stop Loss</div>
-                            <div style="font-size: 1.4em; font-weight: bold; color: #f44336;">₹${stopLoss.toFixed(2)}</div>
-                        </div>
-                        <div style="text-align: center; padding: 15px; background: rgba(76,175,80,0.1); border-radius: 8px;">
-                            <div style="color: #888; font-size: 0.9em;">Target 1</div>
-                            <div style="font-size: 1.4em; font-weight: bold; color: #4caf50;">₹${target1.toFixed(2)}</div>
-                        </div>
+                    <div class="symbol-card" data-symbol="BANKNIFTY">
+                        <div class="symbol-name">BANK NIFTY</div>
+                        <div class="symbol-price" id="price-BANKNIFTY">55,715.15</div>
+                        <div class="symbol-change positive" id="change-BANKNIFTY">+1.12%</div>
                     </div>
-                    
-                    <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
-                        <strong style="color: ${signalColor};">Analysis:</strong><br>
-                        ${analysis.reasons.map(reason => `• ${reason}`).join('<br>')}
+                    <div class="symbol-card" data-symbol="RELIANCE">
+                        <div class="symbol-name">RELIANCE</div>
+                        <div class="symbol-price" id="price-RELIANCE">1,424.00</div>
+                        <div class="symbol-change negative" id="change-RELIANCE">-0.45%</div>
+                    </div>
+                    <div class="symbol-card" data-symbol="TCS">
+                        <div class="symbol-name">TCS</div>
+                        <div class="symbol-price" id="price-TCS">4,087.30</div>
+                        <div class="symbol-change positive" id="change-TCS">+2.15%</div>
                     </div>
                 </div>
-            `;
-            
-            btn.disabled = false;
-            btnText.textContent = 'Generate New Trade Idea';
-            isGenerating = false;
-        }
-        
-        // Initialize
-        updateTime();
-        loadMarketData();
-        setInterval(updateTime, 1000);
-        setInterval(loadMarketData, 30000);
-    </script>
+            </div>
+
+            <div class="portfolio-summary">
+                <h3>Portfolio</h3>
+                <div class="portfolio-metrics">
+                    <div class="metric">
+                        <label>Total Value</label>
+                        <span class="value">₹1,00,000</span>
+                    </div>
+                    <div class="metric">
+                        <label>P&L Today</label>
+                        <span class="value positive">+₹2,450</span>
+                    </div>
+                    <div class="metric">
+                        <label>Available Margin</label>
+                        <span class="value">₹97,550</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="chart-section">
+                <div class="chart-header">
+                    <h2 id="chart-title">NIFTY 50 - Live Chart</h2>
+                    <div class="chart-controls">
+                        <button class="time-frame active" data-frame="1m">1M</button>
+                        <button class="time-frame" data-frame="5m">5M</button>
+                        <button class="time-frame" data-frame="15m">15M</button>
+                        <button class="time-frame" data-frame="1h">1H</button>
+                        <button class="time-frame" data-frame="1d">1D</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="tradingChart" width="800" height="400"></canvas>
+                </div>
+                <div class="price-bar">
+                    <div class="current-price" id="currentPrice">25,420.45</div>
+                    <div class="price-change positive" id="priceChange">+215.75 (+0.85%)</div>
+                    <div class="volume">Volume: <span id="volume">2.1M</span></div>
+                </div>
+            </div>
+
+            <div class="analysis-section">
+                <div class="technical-indicators">
+                    <h3>Technical Analysis</h3>
+                    <div class="indicators-grid">
+                        <div class="indicator">
+                            <label>RSI (14)</label>
+                            <span id="rsi" class="neutral">58.4</span>
+                        </div>
+                        <div class="indicator">
+                            <label>MACD</label>
+                            <span id="macd" class="bullish">Bullish</span>
+                        </div>
+                        <div class="indicator">
+                            <label>SMA 20</label>
+                            <span id="sma20">25,185.30</span>
+                        </div>
+                        <div class="indicator">
+                            <label>Support</label>
+                            <span id="support">25,250.00</span>
+                        </div>
+                        <div class="indicator">
+                            <label>Resistance</label>
+                            <span id="resistance">25,580.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="signal-generator">
+                    <h3>AI Trading Signals</h3>
+                    <button id="generateSignal" class="generate-btn">Generate Professional Signal</button>
+                    <div id="signalResult" class="signal-result"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Panel -->
+        <aside class="right-panel">
+            <div class="market-depth">
+                <h3>Market Depth</h3>
+                <div class="depth-table">
+                    <div class="depth-header">
+                        <span>Bid Qty</span>
+                        <span>Bid</span>
+                        <span>Ask</span>
+                        <span>Ask Qty</span>
+                    </div>
+                    <div id="marketDepth" class="depth-rows">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="news-feed">
+                <h3>Market News</h3>
+                <div class="news-items">
+                    <div class="news-item">
+                        <span class="news-time">10:45</span>
+                        <p>FII net buying ₹2,450 crores in cash segment</p>
+                        <span class="sentiment bullish">Bullish</span>
+                    </div>
+                    <div class="news-item">
+                        <span class="news-time">10:30</span>
+                        <p>Banking index shows strong momentum</p>
+                        <span class="sentiment bullish">Bullish</span>
+                    </div>
+                    <div class="news-item">
+                        <span class="news-time">10:15</span>
+                        <p>Global markets mixed on Fed concerns</p>
+                        <span class="sentiment neutral">Neutral</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div class="disclaimer-banner">
+        <p><strong>Risk Disclaimer:</strong> Trading involves substantial risk. Past performance does not guarantee future results. Please trade responsibly.</p>
+    </div>
+
+    <script src="trading-engine.js"></script>
+    <script src="chart-renderer.js"></script>
+    <script src="signal-analyzer.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
