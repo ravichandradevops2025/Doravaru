@@ -376,3 +376,115 @@ const signalStyles = `
 `;
 
 document.head.insertAdjacentHTML('beforeend', signalStyles);
+
+class TradingApp {
+    constructor() {
+        this.tradingEngine = new TradingEngine();
+        this.signalAnalyzer = new SignalAnalyzer(this.tradingEngine);
+        this.optionsAnalyzer = new AdvancedOptionsAnalyzer();
+        this.chartRenderer = new ChartRenderer('tradingChart');
+        this.chartAnnotations = new ChartAnnotations(this.chartRenderer);
+        this.currentSymbol = 'NIFTY';
+        
+        this.init();
+    }
+
+    // Enhanced signal generation
+    async generateAdvancedSignal() {
+        const btn = document.getElementById('generateSignal');
+        btn.textContent = 'Analyzing Market Data...';
+        btn.disabled = true;
+        
+        try {
+            // Generate technical signal
+            const technicalSignal = this.signalAnalyzer.generateProfessionalSignal(this.currentSymbol);
+            
+            // Get current price
+            const data = this.tradingEngine.marketData.get(this.currentSymbol);
+            const spotPrice = data[data.length - 1].close;
+            
+            // Generate options chain
+            const optionsChain = this.optionsAnalyzer.generateOptionsChain(this.currentSymbol, spotPrice);
+            
+            // Analyze options strategy
+            const optionsStrategy = this.optionsAnalyzer.analyzeOptionsForSignal(
+                this.currentSymbol, spotPrice, technicalSignal
+            );
+            
+            // Display comprehensive signal
+            this.displayAdvancedSignal(technicalSignal, optionsStrategy);
+            
+            // Add chart annotations
+            this.chartAnnotations.addTradeSignal(technicalSignal, optionsStrategy);
+            
+        } catch (error) {
+            console.error('Signal generation failed:', error);
+        } finally {
+            btn.textContent = 'Generate Advanced Signal';
+            btn.disabled = false;
+        }
+    }
+
+    displayAdvancedSignal(signal, options) {
+        const html = `
+            <div class="advanced-signal-container">
+                <div class="signal-panel">
+                    ${this.signalAnalyzer.formatSignalForDisplay(signal)}
+                </div>
+                
+                <div class="options-panel">
+                    <h3>Recommended Options Strategy</h3>
+                    <div class="strategy-card">
+                        <div class="strategy-header">
+                            <span class="strategy-name">${options.name}</span>
+                            <span class="strategy-type ${options.type.toLowerCase()}">${options.type}</span>
+                        </div>
+                        
+                        <div class="strategy-legs">
+                            ${options.legs.map(leg => `
+                                <div class="leg-row">
+                                    <span class="action ${leg.action.toLowerCase()}">${leg.action}</span>
+                                    <span class="option-type">${leg.option}</span>
+                                    <span class="strike">₹${leg.strike}</span>
+                                    <span class="premium">₹${leg.premium}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <div class="strategy-metrics">
+                            <div class="metric">
+                                <label>Max Profit:</label>
+                                <span class="profit">${options.legs[0].maxProfit}</span>
+                            </div>
+                            <div class="metric">
+                                <label>Max Loss:</label>
+                                <span class="loss">₹${options.legs[0].maxLoss}</span>
+                            </div>
+                            <div class="metric">
+                                <label>Breakeven:</label>
+                                <span>₹${options.legs[0].breakeven}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="execution-guide">
+                        <h4>Execution Guide</h4>
+                        <ul>
+                            <li>Enter position when price crosses entry level</li>
+                            <li>Set stop loss at indicated red line</li>
+                            <li>Take profits at green target lines</li>
+                            <li>Monitor time decay and adjust accordingly</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('signalResult').innerHTML = html;
+    }
+}
+
+// Update the generateSignal method call
+document.getElementById('generateSignal').addEventListener('click', () => {
+    window.tradingApp.generateAdvancedSignal();
+});
