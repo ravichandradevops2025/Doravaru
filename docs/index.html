@@ -58,10 +58,10 @@
 
         .platform-container {
             display: grid; grid-template-columns: 280px 1fr 300px;
-            height: calc(100vh - 80px); gap: 1px; background: var(--border-color);
+            min-height: calc(100vh - 80px); gap: 1px; background: var(--border-color);
         }
         .sidebar, .right-panel { background: var(--secondary-bg); padding: 20px; overflow-y: auto; }
-        .main-content { background: var(--secondary-bg); display: flex; flex-direction: column; overflow: hidden; }
+        .main-content { background: var(--secondary-bg); display: flex; flex-direction: column; }
 
         .symbol-card {
             padding: 12px; background: var(--card-bg); border-radius: 8px;
@@ -76,11 +76,15 @@
         .symbol-change.positive { color: var(--accent-green); }
         .symbol-change.negative { color: var(--accent-red); }
 
-        .chart-section { flex: 1; display: flex; flex-direction: column; padding: 20px; }
+        .chart-section { 
+            flex: 1; display: flex; flex-direction: column; padding: 20px; 
+            min-height: 500px;
+        }
         .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .chart-container { 
             flex: 1; background: var(--card-bg); border-radius: 8px; 
             padding: 20px; margin-bottom: 20px; position: relative;
+            min-height: 400px;
         }
         #tradingChart { width: 100%; height: 100%; }
 
@@ -94,7 +98,8 @@
         .price-change.negative { color: var(--accent-red); }
 
         .analysis-section {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0 20px 20px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px; 
+            padding: 0 20px 20px; min-height: 300px;
         }
         .technical-indicators, .signal-generator {
             background: var(--card-bg); padding: 20px; border-radius: 8px;
@@ -115,10 +120,15 @@
         .generate-btn:hover { transform: translateY(-2px); }
         .generate-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-        .signal-result { margin-top: 20px; }
+        .signal-result { margin-top: 20px; max-height: 400px; overflow-y: auto; }
         .professional-signal {
-            background: var(--card-bg); border-radius: 12px; padding: 20px;
-            border: 1px solid var(--border-color);
+            background: rgba(0, 255, 136, 0.1); border-radius: 12px; padding: 20px;
+            border: 1px solid var(--accent-green);
+        }
+
+        .options-recommendation {
+            background: rgba(0, 188, 212, 0.1); padding: 15px; border-radius: 8px;
+            margin: 15px 0; border-left: 4px solid var(--accent-blue);
         }
 
         .depth-table {
@@ -161,7 +171,11 @@
             .analysis-section { grid-template-columns: 1fr; }
         }
         @media (max-width: 768px) {
-            .platform-container { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+            .platform-container { 
+                grid-template-columns: 1fr; 
+                grid-template-rows: auto 1fr auto;
+                height: auto;
+            }
             .sidebar, .right-panel { height: auto; }
         }
     </style>
@@ -214,7 +228,7 @@
                 </div>
             </div>
 
-            <div class="portfolio-summary">
+            <div class="portfolio-summary" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
                 <h3>Portfolio</h3>
                 <div class="portfolio-metrics">
                     <div class="metric">
@@ -277,7 +291,10 @@
 
                 <div class="signal-generator">
                     <h3>AI Trading Signals & Options</h3>
-                    <button id="generateSignal" class="generate-btn">Generate Advanced Signal</button>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 15px;">
+                        Advanced technical analysis with options strategies and chart annotations
+                    </p>
+                    <button id="generateSignal" class="generate-btn">Generate Advanced Trading Signal</button>
                     <div id="signalResult" class="signal-result"></div>
                 </div>
             </div>
@@ -321,7 +338,7 @@
     </div>
 
     <script>
-        // Professional Trading Platform - Complete Implementation
+        // Complete Trading Platform with Chart Annotations
         class TradingPlatform {
             constructor() {
                 this.symbols = {
@@ -334,10 +351,13 @@
                 this.currentSymbol = 'NIFTY';
                 this.chartCanvas = null;
                 this.chartCtx = null;
+                this.chartAnnotations = [];
                 this.init();
             }
 
             async init() {
+                console.log('Initializing Trading Platform...');
+                
                 // Hide loading after 2 seconds
                 setTimeout(() => {
                     document.getElementById('loadingOverlay').classList.add('hidden');
@@ -361,6 +381,8 @@
                 this.startRealTimeUpdates();
                 this.updateMarketTime();
                 setInterval(() => this.updateMarketTime(), 1000);
+                
+                console.log('Platform initialized successfully');
             }
 
             generateMarketData(symbol) {
@@ -370,7 +392,13 @@
 
                 for (let i = 100; i >= 0; i--) {
                     const timestamp = new Date(Date.now() - i * 60000);
-                    const volatility = 0.001;
+                    const hour = timestamp.getHours();
+                    
+                    let volatility = 0.0008;
+                    if (hour === 9) volatility = 0.002;
+                    if (hour === 15) volatility = 0.0015;
+                    if (hour >= 11 && hour <= 13) volatility = 0.0004;
+                    
                     const change = (Math.random() - 0.5) * volatility;
                     price = Math.max(price * (1 + change), basePrice * 0.985);
                     
@@ -396,13 +424,24 @@
 
             initChart() {
                 this.chartCanvas = document.getElementById('tradingChart');
+                if (!this.chartCanvas) {
+                    console.error('Chart canvas not found');
+                    return;
+                }
+                
                 this.chartCtx = this.chartCanvas.getContext('2d');
+                
+                // Set canvas size
+                const container = this.chartCanvas.parentElement;
+                this.chartCanvas.width = container.clientWidth - 40;
+                this.chartCanvas.height = container.clientHeight - 40;
+                
                 this.renderChart();
             }
 
             renderChart() {
                 const data = this.marketData.get(this.currentSymbol);
-                if (!data) return;
+                if (!data || !this.chartCtx) return;
 
                 const ctx = this.chartCtx;
                 const canvas = this.chartCanvas;
@@ -415,7 +454,8 @@
                 const chartWidth = canvas.width - padding.left - padding.right;
                 const chartHeight = canvas.height - padding.top - padding.bottom;
 
-                const prices = data.slice(-50).flatMap(d => [d.high, d.low]);
+                const chartData = data.slice(-50);
+                const prices = chartData.flatMap(d => [d.high, d.low]);
                 const minPrice = Math.min(...prices) * 0.999;
                 const maxPrice = Math.max(...prices) * 1.001;
                 const priceRange = maxPrice - minPrice;
@@ -423,15 +463,31 @@
                 const candleWidth = chartWidth / 50 * 0.8;
                 const candleSpacing = chartWidth / 50;
 
+                // Store price conversion functions
+                this.priceToY = (price) => {
+                    return padding.top + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
+                };
+
+                // Draw grid
+                ctx.strokeStyle = '#34384a';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= 5; i++) {
+                    const y = padding.top + (chartHeight / 5) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(padding.left, y);
+                    ctx.lineTo(padding.left + chartWidth, y);
+                    ctx.stroke();
+                }
+
                 // Draw candles
-                data.slice(-50).forEach((candle, index) => {
+                chartData.forEach((candle, index) => {
                     const x = padding.left + (candleSpacing * index);
                     const isGreen = candle.close >= candle.open;
                     
-                    const openY = padding.top + chartHeight - ((candle.open - minPrice) / priceRange) * chartHeight;
-                    const closeY = padding.top + chartHeight - ((candle.close - minPrice) / priceRange) * chartHeight;
-                    const highY = padding.top + chartHeight - ((candle.high - minPrice) / priceRange) * chartHeight;
-                    const lowY = padding.top + chartHeight - ((candle.low - minPrice) / priceRange) * chartHeight;
+                    const openY = this.priceToY(candle.open);
+                    const closeY = this.priceToY(candle.close);
+                    const highY = this.priceToY(candle.high);
+                    const lowY = this.priceToY(candle.low);
                     
                     // Draw wick
                     ctx.strokeStyle = isGreen ? '#00ff88' : '#ff4757';
@@ -447,6 +503,124 @@
                     const bodyY = Math.min(openY, closeY);
                     ctx.fillRect(x, bodyY, candleWidth, bodyHeight);
                 });
+
+                // Draw price axis
+                ctx.fillStyle = '#a4a6b3';
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'left';
+                for (let i = 0; i <= 5; i++) {
+                    const price = minPrice + (priceRange / 5) * i;
+                    const y = padding.top + chartHeight - (chartHeight / 5) * i;
+                    ctx.fillText(price.toFixed(2), padding.left + chartWidth + 5, y + 4);
+                }
+
+                // Draw any annotations
+                this.drawAnnotations(padding, chartWidth, chartHeight);
+            }
+
+            drawAnnotations(padding, chartWidth, chartHeight) {
+                if (this.chartAnnotations.length === 0) return;
+
+                const ctx = this.chartCtx;
+                
+                this.chartAnnotations.forEach(annotation => {
+                    if (annotation.type === 'horizontal_line') {
+                        const y = this.priceToY(annotation.price);
+                        
+                        ctx.strokeStyle = annotation.color;
+                        ctx.lineWidth = annotation.width || 2;
+                        ctx.setLineDash([5, 5]);
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(padding.left, y);
+                        ctx.lineTo(padding.left + chartWidth, y);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        
+                        // Draw label
+                        ctx.fillStyle = annotation.color;
+                        ctx.font = '12px Inter';
+                        ctx.textAlign = 'left';
+                        ctx.fillText(annotation.label, padding.left + 10, y - 5);
+                    }
+                    
+                    if (annotation.type === 'signal_arrow') {
+                        const y = this.priceToY(annotation.price);
+                        const x = padding.left + chartWidth - 60;
+                        
+                        ctx.fillStyle = annotation.color;
+                        ctx.strokeStyle = annotation.color;
+                        ctx.lineWidth = 2;
+                        
+                        if (annotation.direction === 'BUY') {
+                            // Up arrow
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                            ctx.lineTo(x - 8, y + 15);
+                            ctx.lineTo(x + 8, y + 15);
+                            ctx.closePath();
+                            ctx.fill();
+                        } else if (annotation.direction === 'SELL') {
+                            // Down arrow
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                            ctx.lineTo(x - 8, y - 15);
+                            ctx.lineTo(x + 8, y - 15);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                        
+                        // Draw confidence
+                        ctx.fillStyle = '#1a1f2e';
+                        ctx.fillRect(x + 15, y - 10, 40, 20);
+                        ctx.fillStyle = annotation.color;
+                        ctx.font = '10px Inter';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(`${annotation.confidence}%`, x + 35, y + 2);
+                    }
+                });
+            }
+
+            addChartAnnotations(entry, stopLoss, target, signal, confidence) {
+                this.chartAnnotations = [];
+                
+                // Add horizontal lines
+                this.chartAnnotations.push({
+                    type: 'horizontal_line',
+                    price: entry,
+                    color: '#00ff88',
+                    label: `ENTRY: ₹${entry.toFixed(2)}`,
+                    width: 2
+                });
+                
+                this.chartAnnotations.push({
+                    type: 'horizontal_line',
+                    price: stopLoss,
+                    color: '#ff4757',
+                    label: `STOP LOSS: ₹${stopLoss.toFixed(2)}`,
+                    width: 2
+                });
+                
+                this.chartAnnotations.push({
+                    type: 'horizontal_line',
+                    price: target,
+                    color: '#4caf50',
+                    label: `TARGET: ₹${target.toFixed(2)}`,
+                    width: 1
+                });
+                
+                // Add signal arrow
+                const currentPrice = this.marketData.get(this.currentSymbol).slice(-1)[0].close;
+                this.chartAnnotations.push({
+                    type: 'signal_arrow',
+                    price: currentPrice,
+                    direction: signal,
+                    color: signal === 'BUY' ? '#00ff88' : '#ff4757',
+                    confidence: confidence
+                });
+                
+                // Redraw chart with annotations
+                this.renderChart();
             }
 
             setupEventListeners() {
@@ -459,9 +633,14 @@
                 });
 
                 // Signal generation
-                document.getElementById('generateSignal').addEventListener('click', () => {
-                    this.generateAdvancedSignal();
-                });
+                const signalBtn = document.getElementById('generateSignal');
+                if (signalBtn) {
+                    signalBtn.addEventListener('click', () => {
+                        this.generateAdvancedSignal();
+                    });
+                }
+                
+                console.log('Event listeners setup completed');
             }
 
             selectSymbol(symbol) {
@@ -474,6 +653,8 @@
                     }
                 });
                 
+                // Clear annotations when switching symbols
+                this.chartAnnotations = [];
                 this.updateAllDisplays();
             }
 
@@ -520,6 +701,11 @@
                 document.getElementById('sma20').textContent = sma20.toFixed(2);
                 document.getElementById('support').textContent = (sma20 * 0.985).toFixed(2);
                 document.getElementById('resistance').textContent = (sma20 * 1.015).toFixed(2);
+
+                const macdEl = document.getElementById('macd');
+                const isBullish = rsi > 50 && closes[closes.length - 1] > sma20;
+                macdEl.textContent = isBullish ? 'Bullish' : 'Bearish';
+                macdEl.className = isBullish ? 'bullish' : 'bearish';
             }
 
             calculateRSI(prices, period = 14) {
@@ -574,188 +760,214 @@
                 const btn = document.getElementById('generateSignal');
                 const originalText = btn.textContent;
                 
-                btn.textContent = 'Analyzing Market...';
+                btn.textContent = 'Analyzing Market Data...';
                 btn.disabled = true;
                 
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                const data = this.marketData.get(this.currentSymbol);
-                const closes = data.map(d => d.close);
-                const currentPrice = closes[closes.length - 1];
-                const rsi = this.calculateRSI(closes);
-                const sma20 = this.calculateSMA(closes, 20);
-                
-                let signal = 'HOLD', confidence = 65;
-                if (currentPrice > sma20 && rsi < 70) {
-                    signal = 'BUY';
-                    confidence = 78;
-                } else if (currentPrice < sma20 && rsi > 30) {
-                    signal = 'SELL';
-                    confidence = 73;
-                }
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    const data = this.marketData.get(this.currentSymbol);
+                    const closes = data.map(d => d.close);
+                    const currentPrice = closes[closes.length - 1];
+                    const rsi = this.calculateRSI(closes);
+                    const sma20 = this.calculateSMA(closes, 20);
+                    
+                    // Enhanced signal logic
+                    let signal = 'HOLD', confidence = 60;
+                    let bullishPoints = 0, bearishPoints = 0;
+                    
+                    // Price vs SMA
+                    if (currentPrice > sma20) bullishPoints += 2;
+                    else bearishPoints += 2;
+                    
+                    // RSI analysis
+                    if (rsi < 30) bullishPoints += 3;
+                    else if (rsi > 70) bearishPoints += 3;
+                    else if (rsi > 50) bullishPoints += 1;
+                    else bearishPoints += 1;
+                    
+                    // Volume analysis
+                    const avgVolume = data.slice(-10).reduce((sum, d) => sum + d.volume, 0) / 10;
+                    const currentVolume = data[data.length - 1].volume;
+                    if (currentVolume > avgVolume * 1.2) {
+                        if (bullishPoints > bearishPoints) bullishPoints++;
+                        else bearishPoints++;
+                    }
+                    
+                    // Determine signal
+                    if (bullishPoints > bearishPoints + 1) {
+                        signal = 'BUY';
+                        confidence = Math.min(65 + (bullishPoints - bearishPoints) * 5, 92);
+                    } else if (bearishPoints > bullishPoints + 1) {
+                        signal = 'SELL';
+                        confidence = Math.min(65 + (bearishPoints - bullishPoints) * 5, 92);
+                    }
 
-                const entry = signal === 'BUY' ? currentPrice * 1.002 : currentPrice * 0.998;
-                const stopLoss = signal === 'BUY' ? currentPrice * 0.985 : currentPrice * 1.015;
-                const target1 = signal === 'BUY' ? currentPrice * 1.025 : currentPrice * 0.975;
+                    // Calculate trade levels
+                    const entry = signal === 'BUY' ? currentPrice * 1.002 : 
+                                  signal === 'SELL' ? currentPrice * 0.998 : currentPrice;
+                    const stopLoss = signal === 'BUY' ? currentPrice * 0.985 : 
+                                     signal === 'SELL' ? currentPrice * 1.015 : currentPrice * 0.99;
+                    const target1 = signal === 'BUY' ? currentPrice * 1.025 : 
+                                    signal === 'SELL' ? currentPrice * 0.975 : currentPrice * 1.01;
+                    const target2 = signal === 'BUY' ? currentPrice * 1.045 : 
+                                    signal === 'SELL' ? currentPrice * 0.955 : currentPrice * 1.02;
+                    
+                    const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stopLoss);
+                    
+                    // Generate options recommendation
+                    const optionsStrategy = this.generateOptionsStrategy(signal, currentPrice);
+                    
+                    // Display comprehensive signal
+                    this.displayAdvancedSignal(signal, confidence, entry, stopLoss, target1, target2, riskReward, optionsStrategy, rsi, sma20);
+                    
+                    // Add chart annotations
+                    this.addChartAnnotations(entry, stopLoss, target1, signal, confidence);
+                    
+                } catch (error) {
+                    console.error('Signal generation error:', error);
+                    document.getElementById('signalResult').innerHTML = `
+                        <div style="color: #ff4757; padding: 15px; background: rgba(255, 71, 87, 0.1); border-radius: 8px;">
+                            <strong>Error:</strong> Unable to generate signal. Please try again.
+                        </div>
+                    `;
+                } finally {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+            }
+
+            generateOptionsStrategy(signal, currentPrice) {
+                const atmStrike = Math.round(currentPrice / 50) * 50;
+                const expiry = this.getNextExpiry();
                 
+                if (signal === 'BUY') {
+                    const callPremium = (currentPrice * 0.018 + Math.random() * 0.005).toFixed(2);
+                    return {
+                        name: 'Long Call',
+                        type: 'BULLISH',
+                        action: 'BUY',
+                        option: 'CALL',
+                        strike: atmStrike,
+                        expiry: expiry,
+                        premium: parseFloat(callPremium),
+                        maxLoss: parseFloat(callPremium),
+                        breakeven: atmStrike + parseFloat(callPremium),
+                        maxProfit: 'Unlimited'
+                    };
+                } else if (signal === 'SELL') {
+                    const putPremium = (currentPrice * 0.016 + Math.random() * 0.004).toFixed(2);
+                    return {
+                        name: 'Long Put',
+                        type: 'BEARISH',
+                        action: 'BUY',
+                        option: 'PUT',
+                        strike: atmStrike,
+                        expiry: expiry,
+                        premium: parseFloat(putPremium),
+                        maxLoss: parseFloat(putPremium),
+                        breakeven: atmStrike - parseFloat(putPremium),
+                        maxProfit: atmStrike - parseFloat(putPremium)
+                    };
+                } else {
+                    return {
+                        name: 'Iron Condor',
+                        type: 'NEUTRAL',
+                        recommendation: 'Range-bound strategy for sideways market'
+                    };
+                }
+            }
+
+            getNextExpiry() {
+                const now = new Date();
+                const nextThursday = new Date(now);
+                const daysToThursday = (4 - now.getDay() + 7) % 7;
+                nextThursday.setDate(now.getDate() + (daysToThursday || 7));
+                
+                return nextThursday.toLocaleDateString('en-IN', { 
+                    day: '2-digit', 
+                    month: 'short', 
+                    year: 'numeric' 
+                });
+            }
+
+            displayAdvancedSignal(signal, confidence, entry, stopLoss, target1, target2, riskReward, options, rsi, sma20) {
                 const signalColor = signal === 'BUY' ? '#00ff88' : signal === 'SELL' ? '#ff4757' : '#ffd700';
-                
-                // Generate options recommendation
-                const optionsRec = this.generateOptionsRecommendation(signal, currentPrice);
                 
                 document.getElementById('signalResult').innerHTML = `
                     <div class="professional-signal">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-                            <h4 style="color: ${signalColor};">${this.currentSymbol} - ${signal} Signal</h4>
-                            <span style="color: ${signalColor}; font-size: 18px; font-weight: bold;">${confidence}%</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h4 style="color: ${signalColor}; font-size: 18px;">${this.currentSymbol} - ${signal} SIGNAL</h4>
+                            <div style="text-align: right;">
+                                <div style="font-size: 12px; color: #a4a6b3;">Confidence Score</div>
+                                <div style="font-size: 24px; font-weight: bold; color: ${signalColor};">${confidence}%</div>
+                            </div>
                         </div>
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin: 20px 0;">
-                            <div style="text-align: center; padding: 15px; background: rgba(0,255,136,0.1); border-radius: 8px;">
-                                <div style="color: #888; font-size: 12px;">Entry</div>
-                                <div style="font-size: 16px; font-weight: bold; color: #00ff88;">₹${entry.toFixed(2)}</div>
+                            <div style="text-align: center; padding: 15px; background: rgba(0,255,136,0.1); border-radius: 8px; border: 1px solid #00ff88;">
+                                <div style="color: #888; font-size: 12px;">ENTRY PRICE</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #00ff88;">₹${entry.toFixed(2)}</div>
                             </div>
-                            <div style="text-align: center; padding: 15px; background: rgba(76,175,80,0.1); border-radius: 8px;">
-                                <div style="color: #888; font-size: 12px;">Target 1</div>
-                                <div style="font-size: 16px; font-weight: bold; color: #4caf50;">₹${target1.toFixed(2)}</div>
+                            <div style="text-align: center; padding: 15px; background: rgba(255,71,87,0.1); border-radius: 8px; border: 1px solid #ff4757;">
+                                <div style="color: #888; font-size: 12px;">STOP LOSS</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #ff4757;">₹${stopLoss.toFixed(2)}</div>
+                            </div>
+                            <div style="text-align: center; padding: 15px; background: rgba(76,175,80,0.1); border-radius: 8px; border: 1px solid #4caf50;">
+                                <div style="color: #888; font-size: 12px;">TARGET 1</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #4caf50;">₹${target1.toFixed(2)}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="options-recommendation">
+                            <h4 style="color: #3742fa; margin-bottom: 15px;">🎯 Recommended Options Strategy</h4>
+                            <div style="background: rgba(55, 66, 250, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #3742fa;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="font-weight: 600; color: ${signalColor}; font-size: 16px;">${options.name}</span>
+                                    <span style="background: ${signalColor}; color: black; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">${options.type}</span>
+                                </div>
+                                <div style="font-size: 14px; margin-bottom: 10px;">
+                                    <strong>${options.action} ${this.currentSymbol} ${options.strike} ${options.option}</strong>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 12px;">
+                                    <div>Premium: <strong>₹${options.premium}</strong></div>
+                                    <div>Expiry: <strong>${options.expiry}</strong></div>
+                                    <div>Max Loss: <strong>₹${options.maxLoss}</strong></div>
+                                    <div>Breakeven: <strong>₹${options.breakeven.toFixed(2)}</strong></div>
+                                </div>
                             </div>
                         </div>
                         
                         <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin: 20px 0;">
-                            <h4 style="margin-bottom: 10px;">Options Strategy Recommendation:</h4>
-                            ${optionsRec}
+                            <h4 style="color: ${signalColor}; margin-bottom: 10px;">📊 Technical Analysis Summary</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 12px;">
+                                <div>RSI: <strong>${rsi.toFixed(1)}</strong> (${rsi > 70 ? 'Overbought' : rsi < 30 ? 'Oversold' : 'Neutral'})</div>
+                                <div>SMA20: <strong>₹${sma20.toFixed(2)}</strong></div>
+                                <div>Risk/Reward: <strong>1:${riskReward.toFixed(1)}</strong></div>
+                                <div>Target 2: <strong>₹${target2.toFixed(2)}</strong></div>
+                            </div>
                         </div>
                         
-                        <div style="background: rgba(0,255,136,0.1); padding: 15px; border-radius: 8px;">
-                            <h4 style="margin-bottom: 10px;">Technical Analysis:</h4>
-                            <ul style="margin-left: 15px; font-size: 12px; color: #a4a6b3;">
-                                <li>RSI: ${rsi.toFixed(1)} - ${rsi > 70 ? 'Overbought' : rsi < 30 ? 'Oversold' : 'Neutral'}</li>
-                                <li>Price vs SMA20: ${currentPrice > sma20 ? 'Above (Bullish)' : 'Below (Bearish)'}</li>
-                                <li>Confidence based on multiple technical indicators</li>
-                                <li>Risk management levels calculated using volatility analysis</li>
+                        <div style="background: rgba(0,255,136,0.1); padding: 15px; border-radius: 8px; margin-top: 20px;">
+                            <h4 style="margin-bottom: 10px;">🚀 Execution Guide</h4>
+                            <ul style="margin-left: 20px; font-size: 12px; color: #a4a6b3; line-height: 1.6;">
+                                <li><strong style="color: #00ff88;">Entry:</strong> Wait for price to cross the green entry line at ₹${entry.toFixed(2)}</li>
+                                <li><strong style="color: #ff4757;">Stop Loss:</strong> Exit if price hits the red line at ₹${stopLoss.toFixed(2)}</li>
+                                <li><strong style="color: #4caf50;">Targets:</strong> Book profits at green target lines</li>
+                                <li><strong style="color: #3742fa;">Options:</strong> Execute the recommended ${options.name} strategy</li>
+                                <li>Monitor volume and market sentiment for confirmation</li>
                             </ul>
+                        </div>
+                        
+                        <div style="font-size: 11px; color: #666; text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #34384a;">
+                            ⚠️ This analysis is for educational purposes only. Please do your own research and consult with financial advisors before trading.
                         </div>
                     </div>
                 `;
-                
-                // Draw chart annotations
-                this.drawChartAnnotations(entry, stopLoss, target1, signal);
-                
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }
-
-            generateOptionsRecommendation(signal, currentPrice) {
-                const atmStrike = Math.round(currentPrice / 50) * 50;
-                
-                if (signal === 'BUY') {
-                    const callPremium = (currentPrice * 0.02).toFixed(2);
-                    return `
-                        <div style="background: rgba(0,255,136,0.1); padding: 12px; border-radius: 6px;">
-                            <strong style="color: #00ff88;">Long Call Strategy</strong><br>
-                            <span style="font-size: 12px;">BUY ${this.currentSymbol} ${atmStrike} CALL @ ₹${callPremium}</span><br>
-                            <span style="font-size: 11px; color: #a4a6b3;">Max Loss: ₹${callPremium} | Breakeven: ₹${(atmStrike + parseFloat(callPremium)).toFixed(2)}</span>
-                        </div>
-                    `;
-                } else if (signal === 'SELL') {
-                    const putPremium = (currentPrice * 0.018).toFixed(2);
-                    return `
-                        <div style="background: rgba(255,71,87,0.1); padding: 12px; border-radius: 6px;">
-                            <strong style="color: #ff4757;">Long Put Strategy</strong><br>
-                            <span style="font-size: 12px;">BUY ${this.currentSymbol} ${atmStrike} PUT @ ₹${putPremium}</span><br>
-                            <span style="font-size: 11px; color: #a4a6b3;">Max Loss: ₹${putPremium} | Breakeven: ₹${(atmStrike - parseFloat(putPremium)).toFixed(2)}</span>
-                        </div>
-                    `;
-                } else {
-                    return `
-                        <div style="background: rgba(255,215,0,0.1); padding: 12px; border-radius: 6px;">
-                            <strong style="color: #ffd700;">Iron Condor Strategy</strong><br>
-                            <span style="font-size: 12px;">Range-bound strategy recommended</span><br>
-                            <span style="font-size: 11px; color: #a4a6b3;">Neutral outlook - collect premium from time decay</span>
-                        </div>
-                    `;
-                }
-            }
-
-            drawChartAnnotations(entry, stopLoss, target, signal) {
-                const ctx = this.chartCtx;
-                const canvas = this.chartCanvas;
-                
-                // Re-render chart first
-                this.renderChart();
-                
-                const padding = { top: 20, right: 60, bottom: 40, left: 60 };
-                const chartWidth = canvas.width - padding.left - padding.right;
-                const chartHeight = canvas.height - padding.top - padding.bottom;
-                
-                const data = this.marketData.get(this.currentSymbol);
-                const prices = data.slice(-50).flatMap(d => [d.high, d.low]);
-                const minPrice = Math.min(...prices) * 0.999;
-                const maxPrice = Math.max(...prices) * 1.001;
-                const priceRange = maxPrice - minPrice;
-                
-                // Helper function to convert price to Y coordinate
-                const priceToY = (price) => {
-                    return padding.top + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
-                };
-                
-                // Draw horizontal lines with labels
-                const drawLine = (price, color, label, lineWidth = 2) => {
-                    const y = priceToY(price);
-                    
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = lineWidth;
-                    ctx.setLineDash([5, 5]);
-                    
-                    ctx.beginPath();
-                    ctx.moveTo(padding.left, y);
-                    ctx.lineTo(padding.left + chartWidth, y);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                    
-                    // Draw label
-                    ctx.fillStyle = color;
-                    ctx.font = '12px Inter';
-                    ctx.textAlign = 'left';
-                    ctx.fillText(label, padding.left + 10, y - 5);
-                };
-                
-                // Draw signal lines
-                drawLine(entry, '#00ff88', `ENTRY: ₹${entry.toFixed(2)}`, 2);
-                drawLine(stopLoss, '#ff4757', `STOP LOSS: ₹${stopLoss.toFixed(2)}`, 2);
-                drawLine(target, '#4caf50', `TARGET: ₹${target.toFixed(2)}`, 1);
-                
-                // Draw signal arrow
-                const currentPrice = data[data.length - 1].close;
-                const arrowY = priceToY(currentPrice);
-                const arrowX = padding.left + chartWidth - 50;
-                
-                ctx.fillStyle = signal === 'BUY' ? '#00ff88' : '#ff4757';
-                ctx.strokeStyle = signal === 'BUY' ? '#00ff88' : '#ff4757';
-                ctx.lineWidth = 2;
-                
-                if (signal === 'BUY') {
-                    // Up arrow
-                    ctx.beginPath();
-                    ctx.moveTo(arrowX, arrowY);
-                    ctx.lineTo(arrowX - 8, arrowY + 15);
-                    ctx.lineTo(arrowX + 8, arrowY + 15);
-                    ctx.closePath();
-                    ctx.fill();
-                } else if (signal === 'SELL') {
-                    // Down arrow
-                    ctx.beginPath();
-                    ctx.moveTo(arrowX, arrowY);
-                    ctx.lineTo(arrowX - 8, arrowY - 15);
-                    ctx.lineTo(arrowX + 8, arrowY - 15);
-                    ctx.closePath();
-                    ctx.fill();
-                }
             }
 
             startRealTimeUpdates() {
                 setInterval(() => {
-                    // Update prices for all symbols
                     Object.keys(this.symbols).forEach(symbol => {
                         const data = this.marketData.get(symbol);
                         if (data && data.length > 0) {
@@ -777,7 +989,7 @@
                             data.push(newCandle);
                             if (data.length > 200) data.shift();
                             
-                            // Update symbol price in watchlist
+                            // Update watchlist prices
                             const priceEl = document.getElementById(`price-${symbol}`);
                             const changeEl = document.getElementById(`change-${symbol}`);
                             
@@ -793,7 +1005,6 @@
                         }
                     });
                     
-                    // Update current symbol display
                     if (this.currentSymbol) {
                         this.updateAllDisplays();
                     }
@@ -807,9 +1018,7 @@
                 const isMarketOpen = (hour >= 9 && hour < 15) || (hour === 15 && minute < 30);
                 
                 const timeStr = now.toLocaleTimeString('en-IN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
                 });
                 
                 document.getElementById('market-time').textContent = 
@@ -819,7 +1028,8 @@
 
         // Initialize the trading platform
         document.addEventListener('DOMContentLoaded', () => {
-            new TradingPlatform();
+            console.log('DOM loaded, initializing platform...');
+            window.tradingPlatform = new TradingPlatform();
         });
     </script>
 </body>
