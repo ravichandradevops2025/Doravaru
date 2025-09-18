@@ -5,135 +5,428 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doravaru - AI Trading Platform</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #0a0e27; color: white; margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header { background: linear-gradient(45deg, #00e676, #00bcd4); padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        .card { background: #1a1d3a; padding: 20px; border-radius: 10px; margin: 10px 0; }
-        .button { background: #00e676; color: black; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
-        .symbol { display: inline-block; background: #333; padding: 8px 15px; margin: 5px; border-radius: 20px; cursor: pointer; }
-        .symbol.active { background: #00e676; color: black; }
-        .chart { height: 200px; background: #2d3748; border-radius: 5px; display: flex; align-items: end; padding: 10px; }
-        .bar { width: 8px; background: #00e676; margin: 1px; opacity: 0.7; }
-        .trade-card { border: 2px solid #00e676; }
-        .price { font-size: 24px; font-weight: bold; color: #00e676; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1d3a 100%); 
+            color: white; 
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        
+        .header { 
+            background: linear-gradient(45deg, #00e676, #00bcd4); 
+            padding: 25px; 
+            border-radius: 15px; 
+            margin-bottom: 25px; 
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 230, 118, 0.3);
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; color: #000; }
+        .header p { font-size: 1.2em; color: #333; }
+        
+        .status-bar { 
+            background: #1b5e20; 
+            padding: 15px; 
+            border-radius: 10px; 
+            margin-bottom: 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+        }
+        .status-bar.closed { background: #b71c1c; }
+        
+        .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .card { 
+            background: rgba(26, 29, 58, 0.9); 
+            padding: 25px; 
+            border-radius: 15px; 
+            margin-bottom: 20px; 
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .card:hover { transform: translateY(-5px); }
+        
+        .symbol { 
+            display: inline-block; 
+            background: rgba(255, 255, 255, 0.1); 
+            padding: 12px 20px; 
+            margin: 8px; 
+            border-radius: 25px; 
+            cursor: pointer; 
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        .symbol:hover { background: rgba(0, 230, 118, 0.2); }
+        .symbol.active { 
+            background: linear-gradient(45deg, #00e676, #00bcd4); 
+            color: black; 
+            font-weight: bold;
+            border: 2px solid #00e676;
+        }
+        
+        .chart-container { 
+            height: 300px; 
+            background: rgba(45, 55, 72, 0.8); 
+            border-radius: 10px; 
+            padding: 20px; 
+            display: flex; 
+            align-items: end; 
+            overflow: hidden;
+            position: relative;
+        }
+        .chart-bar { 
+            width: 8px; 
+            margin: 1px; 
+            border-radius: 2px; 
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .chart-bar:hover { opacity: 1 !important; transform: scaleY(1.1); }
+        
+        .price-display { 
+            font-size: 2.5em; 
+            font-weight: bold; 
+            color: #00e676; 
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .button { 
+            background: linear-gradient(45deg, #00e676, #00bcd4); 
+            color: black; 
+            padding: 15px 30px; 
+            border: none; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 230, 118, 0.3);
+        }
+        .button:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px rgba(0, 230, 118, 0.4);
+        }
+        .button:disabled { 
+            opacity: 0.6; 
+            cursor: not-allowed; 
+            transform: none;
+        }
+        
+        .trade-card { 
+            border: 2px solid #00e676; 
+            background: rgba(0, 230, 118, 0.1);
+            animation: slideIn 0.5s ease;
+        }
+        
+        .news-item { 
+            padding: 15px; 
+            background: rgba(255, 255, 255, 0.05); 
+            border-radius: 8px; 
+            margin: 10px 0;
+            border-left: 4px solid #00e676;
+        }
+        
+        .disclaimer { 
+            background: rgba(255, 193, 7, 0.1); 
+            border: 2px solid #ff9800; 
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .loading { 
+            display: inline-block; 
+            width: 20px; 
+            height: 20px; 
+            border: 2px solid #f3f3f3; 
+            border-top: 2px solid #00e676; 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .metric { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .metric:last-child { border-bottom: none; }
+        
+        @media (max-width: 768px) { 
+            .grid { grid-template-columns: 1fr; } 
+            .header h1 { font-size: 2em; }
+            .container { padding: 10px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🚀 Doravaru - AI Trading Platform</h1>
-            <p>Advanced AI-powered stock market analysis and trading platform</p>
+            <p>Advanced AI-powered stock market analysis and trading intelligence</p>
         </div>
 
-        <div class="card">
-            <h3>Market Status: <span id="market-status">OPEN</span></h3>
-            <p id="current-time"></p>
-        </div>
-
-        <div class="card">
-            <h3>Select Symbol for Analysis</h3>
-            <div id="symbols">
-                <span class="symbol active" onclick="selectSymbol('NIFTY')">NIFTY</span>
-                <span class="symbol" onclick="selectSymbol('RELIANCE')">RELIANCE</span>
-                <span class="symbol" onclick="selectSymbol('TCS')">TCS</span>
-                <span class="symbol" onclick="selectSymbol('INFY')">INFY</span>
-                <span class="symbol" onclick="selectSymbol('HDFCBANK')">HDFCBANK</span>
+        <div class="status-bar" id="status-bar">
+            <div>
+                <strong>📊 Market Status: <span id="market-status">LOADING...</span></strong>
+                <span id="current-time" style="margin-left: 20px;"></span>
+            </div>
+            <div>
+                <span style="background: #4caf50; padding: 4px 12px; border-radius: 15px; font-size: 0.9em;">🔴 LIVE DEMO</span>
             </div>
         </div>
 
-        <div class="card">
-            <h3 id="chart-title">NIFTY - Live Chart</h3>
-            <div class="chart" id="chart"></div>
-            <p class="price" id="price">₹21,547.50 <span style="color: #4caf50;">+1.2%</span></p>
-        </div>
+        <div class="grid">
+            <div class="main-content">
+                <div class="card">
+                    <h3>📈 Select Symbol for AI Analysis</h3>
+                    <div id="symbols">
+                        <span class="symbol active" onclick="selectSymbol('NIFTY')">NIFTY</span>
+                        <span class="symbol" onclick="selectSymbol('BANKNIFTY')">BANKNIFTY</span>
+                        <span class="symbol" onclick="selectSymbol('RELIANCE')">RELIANCE</span>
+                        <span class="symbol" onclick="selectSymbol('TCS')">TCS</span>
+                        <span class="symbol" onclick="selectSymbol('INFY')">INFY</span>
+                        <span class="symbol" onclick="selectSymbol('HDFCBANK')">HDFCBANK</span>
+                    </div>
+                </div>
 
-        <div class="card">
-            <h3>🤖 AI Trade Analysis</h3>
-            <button class="button" onclick="generateTrade()">Generate Trade Idea</button>
-            <div id="trade-result" style="margin-top: 20px;"></div>
-        </div>
+                <div class="card">
+                    <h3 id="chart-title">NIFTY - Live Market Data</h3>
+                    <div class="chart-container" id="chart"></div>
+                    <div class="price-display" id="price">₹21,547.50 <span style="color: #4caf50; font-size: 0.6em;">+1.2%</span></div>
+                    <p style="text-align: center; color: #888; font-size: 0.9em;">Last 30 trading intervals • Volume: <span id="volume">2.5M</span></p>
+                </div>
 
-        <div class="card">
-            <h3>📰 Market News</h3>
-            <div id="news">
-                <p>• Indian markets rally on strong Q4 earnings (+0.7 sentiment)</p>
-                <p>• Banking sector shows resilience amid policy changes (+0.4 sentiment)</p>
-                <p>• IT stocks under pressure from global slowdown (-0.2 sentiment)</p>
+                <div class="card">
+                    <h3>🤖 AI Trade Analysis Engine</h3>
+                    <p style="margin-bottom: 20px; color: #bbb;">Generate comprehensive trade recommendations using advanced algorithms</p>
+                    <button class="button" onclick="generateTrade()" id="trade-btn">
+                        <span id="btn-text">Generate Trade Idea</span>
+                    </button>
+                    <div id="trade-result" style="margin-top: 25px;"></div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="card">
+                    <h3>📰 Market News & Sentiment</h3>
+                    <div id="news">
+                        <div class="news-item">
+                            <strong>Indian markets rally on strong Q4 earnings</strong><br>
+                            <small style="color: #4caf50;">Positive Sentiment (+0.7)</small>
+                        </div>
+                        <div class="news-item">
+                            <strong>Banking sector shows resilience</strong><br>
+                            <small style="color: #ff9800;">Neutral Sentiment (+0.4)</small>
+                        </div>
+                        <div class="news-item">
+                            <strong>IT stocks under global pressure</strong><br>
+                            <small style="color: #f44336;">Negative Sentiment (-0.2)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>💼 Portfolio Overview</h3>
+                    <div class="metric">
+                        <span>Portfolio Value:</span>
+                        <span>₹1,00,000</span>
+                    </div>
+                    <div class="metric">
+                        <span>Daily Risk Limit:</span>
+                        <span>2.0%</span>
+                    </div>
+                    <div class="metric">
+                        <span>Available Capital:</span>
+                        <span>₹98,000</span>
+                    </div>
+                    <div class="metric">
+                        <span>Active Positions:</span>
+                        <span>0</span>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="card" style="background: rgba(255,193,7,0.1); border: 1px solid #ff9800;">
-            <p><strong>⚠️ DISCLAIMER:</strong> This platform provides educational analysis only and is not investment advice. Always do your own research and manage risk appropriately.</p>
+        <div class="disclaimer">
+            <p><strong>⚠️ IMPORTANT DISCLAIMER:</strong> This platform provides educational analysis only and is not investment advice. Always do your own research, consult with qualified financial advisors, and manage risk appropriately. Past performance is not indicative of future results.</p>
         </div>
     </div>
 
     <script>
         let currentSymbol = 'NIFTY';
+        let isGenerating = false;
+        
+        const stockPrices = {
+            'NIFTY': { base: 21547.50, current: 21547.50 },
+            'BANKNIFTY': { base: 46234.75, current: 46234.75 },
+            'RELIANCE': { base: 2847.30, current: 2847.30 },
+            'TCS': { base: 3624.75, current: 3624.75 },
+            'INFY': { base: 1678.90, current: 1678.90 },
+            'HDFCBANK': { base: 1589.25, current: 1589.25 }
+        };
         
         function updateTime() {
-            document.getElementById('current-time').textContent = new Date().toLocaleString();
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleString();
+            
+            const hour = now.getHours();
+            const isOpen = hour >= 9 && hour < 15.5 && now.getDay() >= 1 && now.getDay() <= 5;
+            
+            document.getElementById('market-status').textContent = isOpen ? 'OPEN' : 'CLOSED';
+            document.getElementById('status-bar').className = isOpen ? 'status-bar' : 'status-bar closed';
         }
         
         function selectSymbol(symbol) {
             currentSymbol = symbol;
             document.querySelectorAll('.symbol').forEach(el => el.classList.remove('active'));
             event.target.classList.add('active');
-            document.getElementById('chart-title').textContent = symbol + ' - Live Chart';
+            document.getElementById('chart-title').textContent = symbol + ' - Live Market Data';
             generateChart();
             updatePrice();
+            document.getElementById('trade-result').innerHTML = '';
         }
         
         function generateChart() {
             const chart = document.getElementById('chart');
             chart.innerHTML = '';
+            
             for(let i = 0; i < 30; i++) {
                 const bar = document.createElement('div');
-                bar.className = 'bar';
-                bar.style.height = Math.random() * 150 + 20 + 'px';
-                bar.style.backgroundColor = Math.random() > 0.5 ? '#00e676' : '#f44336';
+                bar.className = 'chart-bar';
+                
+                const height = Math.random() * 200 + 30;
+                const isGreen = Math.random() > 0.45;
+                
+                bar.style.height = height + 'px';
+                bar.style.backgroundColor = isGreen ? '#00e676' : '#f44336';
+                bar.style.opacity = '0.8';
+                
+                bar.addEventListener('mouseenter', function() {
+                    const price = (stockPrices[currentSymbol].base * (0.98 + Math.random() * 0.04)).toFixed(2);
+                    bar.title = `₹${price}`;
+                });
+                
                 chart.appendChild(bar);
             }
         }
         
         function updatePrice() {
-            const prices = {
-                'NIFTY': 21547.50,
-                'RELIANCE': 2847.30,
-                'TCS': 3624.75,
-                'INFY': 1678.90,
-                'HDFCBANK': 1589.25
-            };
-            const price = prices[currentSymbol] || 1000;
+            const stock = stockPrices[currentSymbol];
             const change = (Math.random() - 0.5) * 4;
-            const color = change >= 0 ? '#4caf50' : '#f44336';
+            stock.current = stock.base * (1 + change / 100);
+            
+            const changePercent = ((stock.current - stock.base) / stock.base * 100);
+            const color = changePercent >= 0 ? '#4caf50' : '#f44336';
+            const sign = changePercent >= 0 ? '+' : '';
+            
             document.getElementById('price').innerHTML = 
-                `₹${price.toFixed(2)} <span style="color: ${color};">${change >= 0 ? '+' : ''}${change.toFixed(1)}%</span>`;
+                `₹${stock.current.toFixed(2)} <span style="color: ${color}; font-size: 0.6em;">${sign}${changePercent.toFixed(1)}%</span>`;
+            
+            document.getElementById('volume').textContent = (Math.random() * 5 + 1).toFixed(1) + 'M';
         }
         
-        function generateTrade() {
-            const scenarios = ['BULL', 'BEAR', 'NEUTRAL'];
+        async function generateTrade() {
+            if (isGenerating) return;
+            
+            isGenerating = true;
+            const btn = document.getElementById('trade-btn');
+            const btnText = document.getElementById('btn-text');
+            
+            btn.disabled = true;
+            btnText.innerHTML = '<span class="loading"></span> Analyzing Market Data...';
+            
+            // Simulate AI processing
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const scenarios = [
+                { type: 'BULL', confidence: Math.floor(Math.random() * 20) + 70, color: '#4caf50' },
+                { type: 'BEAR', confidence: Math.floor(Math.random() * 20) + 65, color: '#f44336' },
+                { type: 'NEUTRAL', confidence: Math.floor(Math.random() * 15) + 55, color: '#ff9800' }
+            ];
+            
             const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
-            const confidence = Math.floor(Math.random() * 30) + 60;
+            const currentPrice = stockPrices[currentSymbol].current;
+            
+            let entry, stopLoss, target1, target2;
+            
+            if (scenario.type === 'BULL') {
+                entry = currentPrice * 1.002;
+                stopLoss = currentPrice * 0.985;
+                target1 = currentPrice * 1.025;
+                target2 = currentPrice * 1.045;
+            } else if (scenario.type === 'BEAR') {
+                entry = currentPrice * 0.998;
+                stopLoss = currentPrice * 1.015;
+                target1 = currentPrice * 0.975;
+                target2 = currentPrice * 0.955;
+            } else {
+                entry = currentPrice;
+                stopLoss = currentPrice * 0.99;
+                target1 = currentPrice * 1.015;
+                target2 = currentPrice * 1.025;
+            }
+            
+            const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stopLoss);
+            const positionSize = Math.floor(2000 / Math.abs(entry - stopLoss));
             
             document.getElementById('trade-result').innerHTML = `
-                <div class="trade-card card">
-                    <h4>${currentSymbol} - ${scenario} Signal</h4>
-                    <p><strong>Entry:</strong> ₹${(Math.random() * 1000 + 2000).toFixed(2)}</p>
-                    <p><strong>Stop Loss:</strong> ₹${(Math.random() * 1000 + 1900).toFixed(2)}</p>
-                    <p><strong>Target:</strong> ₹${(Math.random() * 1000 + 2100).toFixed(2)}</p>
-                    <p><strong>Confidence:</strong> ${confidence}%</p>
-                    <p><strong>Risk/Reward:</strong> 1:${(Math.random() * 2 + 1.5).toFixed(1)}</p>
-                    <p><strong>Rationale:</strong> Technical analysis shows ${scenario.toLowerCase()}ish momentum with strong volume support.</p>
+                <div class="trade-card">
+                    <h4 style="color: ${scenario.color}; margin-bottom: 15px;">
+                        ${currentSymbol} - ${scenario.type} Signal 
+                        <span style="float: right; font-size: 0.9em;">Confidence: ${scenario.confidence}%</span>
+                    </h4>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin: 20px 0;">
+                        <div style="text-align: center; padding: 10px; background: rgba(0,230,118,0.1); border-radius: 8px;">
+                            <div style="color: #888; font-size: 0.9em;">Entry Price</div>
+                            <div style="font-size: 1.3em; font-weight: bold; color: #00e676;">₹${entry.toFixed(2)}</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px; background: rgba(244,67,54,0.1); border-radius: 8px;">
+                            <div style="color: #888; font-size: 0.9em;">Stop Loss</div>
+                            <div style="font-size: 1.3em; font-weight: bold; color: #f44336;">₹${stopLoss.toFixed(2)}</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px; background: rgba(76,175,80,0.1); border-radius: 8px;">
+                            <div style="color: #888; font-size: 0.9em;">Target 1</div>
+                            <div style="font-size: 1.3em; font-weight: bold; color: #4caf50;">₹${target1.toFixed(2)}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric">
+                        <span>Position Size:</span>
+                        <span>${positionSize} shares</span>
+                    </div>
+                    <div class="metric">
+                        <span>Risk/Reward Ratio:</span>
+                        <span style="color: #4caf50;">1:${riskReward.toFixed(1)}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Target 2:</span>
+                        <span>₹${target2.toFixed(2)}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Timeframe:</span>
+                        <span>Intraday</span>
+                    </div>
+                    
+                    <div style="margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                        <strong>AI Analysis:</strong> Technical indicators show ${scenario.type.toLowerCase()}ish momentum with strong volume confirmation. ${scenario.type === 'BULL' ? 'Price above key moving averages suggests upward continuation.' : scenario.type === 'BEAR' ? 'Price below support levels indicates potential downside.' : 'Mixed signals suggest range-bound movement.'}
+                    </div>
                 </div>
             `;
+            
+            btn.disabled = false;
+            btnText.textContent = 'Generate New Trade Idea';
+            isGenerating = false;
         }
         
         // Initialize
         updateTime();
-        setInterval(updateTime, 1000);
         generateChart();
-        setInterval(generateChart, 5000); // Update chart every 5 seconds
-        setInterval(updatePrice, 3000); // Update price every 3 seconds
+        setInterval(updateTime, 1000);
+        setInterval(generateChart, 8000);
+        setInterval(updatePrice, 4000);
     </script>
 </body>
 </html>
