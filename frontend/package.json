@@ -2,6 +2,7 @@
   "name": "doravaru-frontend",
   "version": "1.0.0",
   "private": true,
+  "homepage": "https://ravichandradevops2025.github.io/Doravaru",
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -15,7 +16,9 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test"
+    "test": "react-scripts test",
+    "predeploy": "npm run build",
+    "deploy": "cp -r build/* ../docs/"
   },
   "browserslist": {
     "production": [
