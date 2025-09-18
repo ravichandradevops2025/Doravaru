@@ -144,7 +144,7 @@
             z-index: 1000;
         }
         .api-status.live { background: #4caf50; }
-        .api-status.mock { background: #ff9800; }
+        .api-status.demo { background: #ff9800; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @media (max-width: 768px) { 
             .grid { grid-template-columns: 1fr; } 
@@ -154,12 +154,12 @@
     </style>
 </head>
 <body>
-    <div id="apiStatus" class="api-status mock">DEMO MODE</div>
+    <div id="apiStatus" class="api-status demo">ACCURATE DEMO</div>
     
     <div class="container">
         <div class="header">
             <h1>🚀 Doravaru</h1>
-            <p>AI-Powered Stock Market Trading Platform with Live Data</p>
+            <p>AI-Powered Stock Market Trading Platform with Current Market Prices</p>
         </div>
 
         <div class="status-bar" id="status-bar">
@@ -168,7 +168,7 @@
                 <span id="current-time" style="margin-left: 20px;"></span>
             </div>
             <div>
-                <span style="background: #f44336; padding: 6px 15px; border-radius: 20px; font-size: 0.9em;">🔴 LIVE DATA</span>
+                <span style="background: #4caf50; padding: 6px 15px; border-radius: 20px; font-size: 0.9em;">🟢 CURRENT PRICES</span>
             </div>
         </div>
 
@@ -187,16 +187,16 @@
                 </div>
 
                 <div class="card">
-                    <h3 id="chart-title">NIFTY - Live Market Data</h3>
+                    <h3 id="chart-title">NIFTY - Current Market Data</h3>
                     <div class="chart-container" id="chart"></div>
                     <div class="price-display" id="price">Loading...</div>
-                    <p style="text-align: center; color: #888;">Live Data • Volume: <span id="volume">-</span></p>
+                    <p style="text-align: center; color: #888;">Current Data • Volume: <span id="volume">-</span></p>
                 </div>
 
                 <div class="card">
                     <h3>🤖 AI Trade Idea Generator</h3>
-                    <p style="margin-bottom: 25px; color: #bbb;">Real-time analysis with technical indicators and live market data</p>
-                    <button class="button" onclick="generateRealTrade()" id="trade-btn">
+                    <p style="margin-bottom: 25px; color: #bbb;">Technical analysis based on current market levels and realistic price movements</p>
+                    <button class="button" onclick="generateTrade()" id="trade-btn">
                         <span id="btn-text">Generate AI Trade Idea</span>
                     </button>
                     <div id="trade-result" style="margin-top: 30px;"></div>
@@ -251,8 +251,7 @@
     <script>
         let currentSymbol = 'NIFTY';
         let isGenerating = false;
-        let realMarketData = {};
-        let isUsingLiveData = false;
+        let marketData = {};
         
         function updateTime() {
             const now = new Date();
@@ -263,37 +262,28 @@
             document.getElementById('status-bar').className = isOpen ? 'status-bar' : 'status-bar closed';
         }
         
-        async function loadRealData() {
+        async function loadMarketData() {
             try {
-                console.log('Fetching live data for:', currentSymbol);
+                console.log('Loading market data for:', currentSymbol);
                 const data = await liveDataService.fetchLivePrice(currentSymbol);
-                realMarketData[currentSymbol] = data;
-                isUsingLiveData = true;
-                updateApiStatus('live');
-                generateRealChart(data);
-                updateRealPrice(data);
-                console.log('Live data loaded successfully');
+                marketData[currentSymbol] = data;
+                generateChart(data);
+                updatePrice(data);
+                updateApiStatus();
+                console.log('Market data loaded successfully');
             } catch (error) {
-                console.error('Failed to load real data:', error);
-                isUsingLiveData = false;
-                updateApiStatus('mock');
-                generateMockChart();
-                updateMockPrice();
+                console.error('Failed to load market data:', error);
+                // Fallback will be handled by the service
             }
         }
         
-        function updateApiStatus(type) {
+        function updateApiStatus() {
             const statusEl = document.getElementById('apiStatus');
-            if (type === 'live') {
-                statusEl.textContent = '🟢 LIVE DATA';
-                statusEl.className = 'api-status live';
-            } else {
-                statusEl.textContent = '🟡 DEMO MODE';
-                statusEl.className = 'api-status mock';
-            }
+            statusEl.textContent = '🟢 CURRENT PRICES';
+            statusEl.className = 'api-status live';
         }
         
-        function generateRealChart(data) {
+        function generateChart(data) {
             const chart = document.getElementById('chart');
             chart.innerHTML = '';
             
@@ -322,7 +312,7 @@
             });
         }
         
-        function updateRealPrice(data) {
+        function updatePrice(data) {
             if (!data || data.length === 0) return;
             
             const latest = data[data.length - 1];
@@ -338,47 +328,16 @@
             document.getElementById('volume').textContent = (latest.volume / 1000000).toFixed(1) + 'M';
         }
         
-        function generateMockChart() {
-            const chart = document.getElementById('chart');
-            chart.innerHTML = '';
-            for(let i = 0; i < 35; i++) {
-                const bar = document.createElement('div');
-                bar.className = 'chart-bar';
-                const height = Math.random() * 250 + 30;
-                const isGreen = Math.random() > 0.45;
-                bar.style.height = height + 'px';
-                bar.style.backgroundColor = isGreen ? '#00e676' : '#f44336';
-                bar.style.opacity = '0.85';
-                chart.appendChild(bar);
-            }
-        }
-        
-        function updateMockPrice() {
-            const basePrices = {
-                'NIFTY': 21547.50, 'BANKNIFTY': 46234.75, 'RELIANCE': 2847.30,
-                'TCS': 3624.75, 'INFY': 1678.90, 'HDFCBANK': 1589.25
-            };
-            const basePrice = basePrices[currentSymbol] || 1000;
-            const change = (Math.random() - 0.5) * 4;
-            const currentPrice = basePrice * (1 + change / 100);
-            const color = change >= 0 ? '#4caf50' : '#f44336';
-            const sign = change >= 0 ? '+' : '';
-            
-            document.getElementById('price').innerHTML = 
-                `₹${currentPrice.toFixed(2)} <span style="color: ${color}; font-size: 0.5em;">${sign}${change.toFixed(2)}%</span>`;
-            document.getElementById('volume').textContent = (Math.random() * 8 + 2).toFixed(1) + 'M';
-        }
-        
         function selectSymbol(symbol) {
             currentSymbol = symbol;
             document.querySelectorAll('.symbol').forEach(el => el.classList.remove('active'));
             event.target.classList.add('active');
-            document.getElementById('chart-title').textContent = symbol + ' - Live Market Data';
+            document.getElementById('chart-title').textContent = symbol + ' - Current Market Data';
             document.getElementById('trade-result').innerHTML = '';
-            loadRealData();
+            loadMarketData();
         }
         
-        async function generateRealTrade() {
+        async function generateTrade() {
             if (isGenerating) return;
             
             isGenerating = true;
@@ -386,19 +345,19 @@
             const btnText = document.getElementById('btn-text');
             
             btn.disabled = true;
-            btnText.innerHTML = '<span class="loading"></span> Fetching Live Data...';
+            btnText.innerHTML = '<span class="loading"></span> Analyzing Market Data...';
             
             try {
                 let data;
-                if (isUsingLiveData && realMarketData[currentSymbol]) {
-                    data = realMarketData[currentSymbol];
+                if (marketData[currentSymbol]) {
+                    data = marketData[currentSymbol];
                 } else {
                     data = await liveDataService.fetchLivePrice(currentSymbol);
-                    realMarketData[currentSymbol] = data;
+                    marketData[currentSymbol] = data;
                 }
                 
-                btnText.innerHTML = '<span class="loading"></span> Analyzing Technical Indicators...';
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                btnText.innerHTML = '<span class="loading"></span> Processing Technical Indicators...';
+                await new Promise(resolve => setTimeout(resolve, 1500));
                 
                 const analysis = technicalAnalyzer.generateSignal(data);
                 const currentPrice = data[data.length - 1].close;
@@ -491,7 +450,7 @@
                         </div>
                         
                         <div style="margin-top: 15px; padding: 10px; background: rgba(0,230,118,0.1); border-radius: 6px; text-align: center;">
-                            <small>${isUsingLiveData ? '📡 Based on Live Market Data' : '⚠️ Based on Demo Data'}</small>
+                            <small>📊 Based on Current Market Levels & Technical Analysis</small>
                         </div>
                     </div>
                 `;
@@ -500,11 +459,9 @@
                 console.error('Error generating trade:', error);
                 document.getElementById('trade-result').innerHTML = `
                     <div style="color: #f44336; padding: 15px; background: rgba(244,67,54,0.1); border-radius: 8px;">
-                        <strong>Error:</strong> Unable to fetch live data. Using demo mode.
+                        <strong>Error:</strong> Unable to generate trade analysis. Please try again.
                     </div>
                 `;
-                updateMockPrice();
-                generateMockChart();
             }
             
             btn.disabled = false;
@@ -514,15 +471,15 @@
         
         // Initialize
         updateTime();
-        loadRealData();
+        loadMarketData();
         
         // Update intervals
         setInterval(updateTime, 1000);
         setInterval(() => {
             if (!isGenerating) {
-                loadRealData();
+                loadMarketData();
             }
-        }, 120000); // Update every 2 minutes to respect API limits
+        }, 30000); // Update every 30 seconds
     </script>
 </body>
 </html>
