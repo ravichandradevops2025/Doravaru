@@ -1,142 +1,179 @@
-# app/services/data_ingestion.py
-import asyncio
-import aiohttp
-import feedparser
 import requests
-from typing import List, Dict, Optional
+import json
+import time
 from datetime import datetime, timedelta
-import pandas as pd
-import numpy as np
-from app.models.schemas import MarketData, NewsReference
-from app.database.database import get_db
-from app.database.models import NewsDB, MarketDataDB
 import logging
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-class DataIngestionService:
+class AngelOneDataService:
     def __init__(self):
-        self.session = None
+        self.base_url = "https://apiconnect.angelbroking.com"
+        self.access_token = None
+        self.client_code = None
+        self.api_key = "a18ffda4"
+        self.secret_key = "801865f61-201-46cd-bdb9-b20e64322a2a"
         
-    async def __aenter__(self):
-        self.session = aiohttp.ClientSession()
-        return self
-        
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
-            await self.session.close()
-
-class NewsIngestionService(DataIngestionService):
-    """Collect and parse news from multiple sources"""
-    
-    RSS_FEEDS = {
-        "moneycontrol": "https://www.moneycontrol.com/rss/business.xml",
-        "economic_times": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
-        "business_standard": "https://www.business-standard.com/rss/markets-106.rss"
-    }
-    
-    async def fetch_news_headlines(self) -> List[NewsReference]:
-        """Fetch latest news headlines from RSS feeds"""
-        all_headlines = []
-        
-        for source, url in self.RSS_FEEDS.items():
-            try:
-                async with self.session.get(url) as response:
-                    content = await response.text()
-                    feed = feedparser.parse(content)
-                    
-                    for entry in feed.entries[:10]:  # Get top 10 from each source
-                        sentiment = await self._analyze_sentiment(entry.title + " " + entry.get('summary', ''))
-                        
-                        headline = NewsReference(
-                            source=source,
-                            title=entry.title,
-                            url=entry.link,
-                            sentiment=sentiment
-                        )
-                        all_headlines.append(headline)
-                        
-            except Exception as e:
-                logger.error(f"Error fetching news from {source}: {e}")
+    def authenticate(self, client_code: str, totp: str) -> Dict:
+        """Authenticate with Angel One API"""
+        try:
+            url = f"{self.base_url}/rest/auth/angelbroking/user/v1/loginByPassword"
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-UserType': 'USER',
+                'X-SourceID': 'WEB',
+                'X-ClientLocalIP': '127.0.0.1',
+                'X-ClientPublicIP': '106.193.147.98',
+                'X-MACAddress': 'fe80::216:3eff:fe00:0',
+                'X-PrivateKey': self.api_key
+            }
+            
+            payload = {
+                "clientcode": client_code,
+                "password": totp
+            }
+            
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            data = response.json()
+            
+            if data.get('status') and data.get('data'):
+                self.access_token = data['data']['jwtToken']
+                self.client_code = client_code
+                logger.info(f"Angel One authentication successful for {client_code}")
+                return {"success": True, "message": "Authentication successful"}
+            else:
+                logger.error(f"Angel One authentication failed: {data.get('message', 'Unknown error')}")
+                return {"success": False, "message": data.get('message', 'Authentication failed')}
                 
-        return all_headlines
+        except Exception as e:
+            logger.error(f"Angel One authentication error: {str(e)}")
+            return {"success": False, "message": f"Authentication error: {str(e)}"}
     
-    async def _analyze_sentiment(self, text: str) -> float:
-        """Analyze sentiment of text using simple keyword-based approach"""
-        # For production, integrate with proper sentiment analysis API
-        positive_keywords = ['bullish', 'gain', 'rise', 'up', 'positive', 'growth', 'rally', 'surge', 'jump']
-        negative_keywords = ['bearish', 'fall', 'down', 'negative', 'decline', 'crash', 'drop', 'loss', 'plunge']
+    def get_live_prices(self, symbols: List[str]) -> Dict:
+        """Get live prices from Angel One API"""
+        if not self.access_token:
+            return {"success": False, "message": "Not authenticated"}
         
-        text_lower = text.lower()
-        pos_count = sum(1 for word in positive_keywords if word in text_lower)
-        neg_count = sum(1 for word in negative_keywords if word in text_lower)
-        
-        if pos_count + neg_count == 0:
-            return 0.0
+        try:
+            # Symbol to token mapping
+            token_mapping = {
+                'NIFTY50': '99926000',
+                'BANKNIFTY': '99926009', 
+                'RELIANCE': '2885',
+                'TCS': '11536'
+            }
             
-        return (pos_count - neg_count) / (pos_count + neg_count)
+            url = f"{self.base_url}/rest/secure/angelbroking/order/v1/getLTP"
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {self.access_token}',
+                'X-UserType': 'USER',
+                'X-SourceID': 'WEB',
+                'X-ClientLocalIP': '127.0.0.1',
+                'X-ClientPublicIP': '106.193.147.98',
+                'X-MACAddress': 'fe80::216:3eff:fe00:0',
+                'X-PrivateKey': self.api_key
+            }
+            
+            # Prepare symbols and tokens
+            symbol_tokens = [token_mapping.get(symbol, '1234') for symbol in symbols]
+            
+            payload = {
+                "exchange": "NSE",
+                "tradingsymbol": ",".join(symbols),
+                "symboltoken": ",".join(symbol_tokens)
+            }
+            
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            data = response.json()
+            
+            if data.get('status') and data.get('data'):
+                # Format the response
+                formatted_data = []
+                for i, symbol in enumerate(symbols):
+                    if i < len(data['data']):
+                        item = data['data'][i]
+                        formatted_data.append({
+                            'symbol': symbol,
+                            'ltp': float(item.get('ltp', 0)),
+                            'open': float(item.get('open', 0)),
+                            'high': float(item.get('high', 0)),
+                            'low': float(item.get('low', 0)),
+                            'close': float(item.get('close', 0)),
+                            'volume': int(item.get('volume', 0)),
+                            'timestamp': datetime.now().isoformat(),
+                            'change': ((float(item.get('ltp', 0)) - float(item.get('close', 0))) / float(item.get('close', 1)) * 100) if float(item.get('close', 0)) > 0 else 0
+                        })
+                
+                return {"success": True, "data": formatted_data}
+            else:
+                logger.error(f"LTP fetch failed: {data.get('message', 'Unknown error')}")
+                return {"success": False, "message": data.get('message', 'LTP fetch failed')}
+                
+        except Exception as e:
+            logger.error(f"Live price fetch error: {str(e)}")
+            return {"success": False, "message": f"Price fetch error: {str(e)}"}
 
-class MarketDataService(DataIngestionService):
-    """Mock market data service - replace with real broker API"""
-    
-    SYMBOLS = ["NIFTY", "BANKNIFTY", "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "ITC", "HINDUNILVR", "BHARTIARTL"]
-    
-    async def fetch_real_time_data(self, symbol: str, timeframe: str = "1min") -> List[MarketData]:
-        """Mock real-time market data - replace with actual API"""
-        # Generate mock OHLC data
-        base_price = self._get_base_price(symbol)
-        data_points = []
-        
-        for i in range(100):  # Last 100 candles
-            timestamp = datetime.now() - timedelta(minutes=i)
-            
-            # Simple random walk for mock data
-            open_price = base_price + np.random.normal(0, base_price * 0.01)
-            high_price = open_price + abs(np.random.normal(0, base_price * 0.005))
-            low_price = open_price - abs(np.random.normal(0, base_price * 0.005))
-            close_price = open_price + np.random.normal(0, base_price * 0.008)
-            volume = int(np.random.normal(100000, 50000))
-            
-            data_points.append(MarketData(
-                symbol=symbol,
-                timestamp=timestamp,
-                open=round(open_price, 2),
-                high=round(high_price, 2),
-                low=round(low_price, 2),
-                close=round(close_price, 2),
-                volume=max(volume, 1000)
-            ))
-            
-            base_price = close_price
-            
-        return list(reversed(data_points))  # Chronological order
-    
-    def _get_base_price(self, symbol: str) -> float:
-        """Get base price for mock data generation"""
-        base_prices = {
-            "NIFTY": 21500,
-            "BANKNIFTY": 46000,
-            "RELIANCE": 2800,
-            "TCS": 3600,
-            "INFY": 1650,
-            "HDFCBANK": 1600,
-            "ICICIBANK": 950,
-            "ITC": 450,
-            "HINDUNILVR": 2650,
-            "BHARTIARTL": 900
+# Fallback realistic data service
+class RealtimeDataSimulator:
+    def __init__(self):
+        # Current actual market prices (update these daily)
+        self.base_prices = {
+            'NIFTY50': 25294.30,  # From your TradingView screenshot
+            'BANKNIFTY': 55408.45,
+            'RELIANCE': 1428.16,
+            'TCS': 4084.12
         }
-        return base_prices.get(symbol, 1000)
-
-class SocialSentimentService(DataIngestionService):
-    """Mock social sentiment service - replace with Twitter API"""
     
-    async def fetch_market_tweets(self, symbol: str) -> List[Dict]:
-        """Mock social sentiment data"""
-        # In production, integrate with Twitter API v2
-        mock_tweets = [
-            {"text": f"{symbol} looking bullish on technical charts", "sentiment": 0.6},
-            {"text": f"Bearish divergence spotted in {symbol}", "sentiment": -0.4},
-            {"text": f"{symbol} breaking key resistance levels", "sentiment": 0.7},
-            {"text": f"Market sentiment turning negative for {symbol}", "sentiment": -0.5}
-        ]
-        return mock_tweets
+    def get_realistic_data(self, symbols: List[str]) -> Dict:
+        """Generate realistic live-like data"""
+        data = []
+        current_time = datetime.now()
+        
+        for symbol in symbols:
+            base_price = self.base_prices.get(symbol, 1000)
+            
+            # Market hours based volatility
+            hour = current_time.hour
+            if 9 <= hour <= 15:
+                if hour == 9:
+                    volatility = 0.002  # Opening volatility
+                elif hour == 15:
+                    volatility = 0.0015  # Closing volatility
+                elif 11 <= hour <= 13:
+                    volatility = 0.0005  # Lunch time
+                else:
+                    volatility = 0.001  # Regular hours
+            else:
+                volatility = 0.0002  # After hours
+            
+            # Generate realistic movement
+            import random
+            change_percent = (random.random() - 0.5) * volatility * 2
+            current_price = base_price * (1 + change_percent)
+            
+            # Calculate OHLC
+            open_price = base_price * (1 + (random.random() - 0.5) * volatility * 0.5)
+            high_price = max(current_price, open_price) * (1 + random.random() * volatility * 0.3)
+            low_price = min(current_price, open_price) * (1 - random.random() * volatility * 0.3)
+            
+            data.append({
+                'symbol': symbol,
+                'ltp': round(current_price, 2),
+                'open': round(open_price, 2),
+                'high': round(high_price, 2),
+                'low': round(low_price, 2),
+                'close': base_price,
+                'volume': random.randint(500000, 2000000),
+                'timestamp': current_time.isoformat(),
+                'change': round(change_percent * 100, 2),
+                'isLive': False,
+                'isRealistic': True
+            })
+        
+        return {"success": True, "data": data}
