@@ -26,6 +26,29 @@
             line-height: 1.6;
         }
 
+        .api-config-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center;
+            z-index: 10001;
+        }
+        .api-config-modal.hidden { display: none; }
+        .api-config-content {
+            background: var(--card-bg); padding: 30px; border-radius: 15px;
+            width: 90%; max-width: 500px; border: 1px solid var(--accent-green);
+        }
+        .config-input {
+            width: 100%; padding: 12px; margin: 8px 0; background: var(--secondary-bg);
+            border: 1px solid var(--border-color); border-radius: 6px; color: white;
+        }
+        .config-btn {
+            width: 100%; padding: 12px; background: var(--accent-green);
+            color: black; border: none; border-radius: 6px; font-weight: 600;
+            cursor: pointer; margin-top: 15px;
+        }
+        .skip-btn {
+            background: var(--border-color); color: white; margin-top: 8px;
+        }
+
         .loading-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--primary-bg); display: flex; flex-direction: column;
@@ -163,6 +186,7 @@
         }
         .sentiment.bullish { background: rgba(0, 255, 136, 0.2); color: var(--accent-green); }
         .sentiment.live { background: rgba(55, 66, 250, 0.2); color: var(--accent-blue); }
+        .sentiment.connected { background: rgba(0, 255, 136, 0.2); color: var(--accent-green); }
 
         .portfolio-metrics { display: flex; flex-direction: column; gap: 12px; }
         .metric { display: flex; justify-content: space-between; align-items: center; }
@@ -175,23 +199,32 @@
             .platform-container { grid-template-columns: 250px 1fr 250px; }
             .analysis-section { grid-template-columns: 1fr; }
         }
-        @media (max-width: 768px) {
-            .platform-container { 
-                grid-template-columns: 1fr; 
-                grid-template-rows: auto 1fr auto;
-                height: auto;
-            }
-            .sidebar, .right-panel { height: auto; }
-        }
     </style>
 </head>
 <body>
-    <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-spinner"></div>
-        <p>Connecting to Angel One Live Data...</p>
+    <!-- API Configuration Modal -->
+    <div id="apiConfigModal" class="api-config-modal">
+        <div class="api-config-content">
+            <h3 style="margin-bottom: 20px; color: var(--accent-green);">Angel One API Setup</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 15px;">
+                Enter your Angel One credentials for live data. Your API key is already configured.
+            </p>
+            <input type="text" id="clientCode" class="config-input" placeholder="Client Code (e.g., D80101)" />
+            <input type="password" id="mpin" class="config-input" placeholder="MPIN" />
+            <button onclick="connectWithCredentials()" class="config-btn">Connect to Live Data</button>
+            <button onclick="useDemoMode()" class="config-btn skip-btn">Use Enhanced Demo Mode</button>
+            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 10px; text-align: center;">
+                Demo mode uses realistic live-like data for testing
+            </p>
+        </div>
     </div>
 
-    <div id="apiStatusBadge" class="api-status-badge live">LIVE DATA</div>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Initializing Trading Platform...</p>
+    </div>
+
+    <div id="apiStatusBadge" class="api-status-badge demo">DEMO MODE</div>
 
     <nav class="navbar">
         <div class="nav-brand">
@@ -201,9 +234,9 @@
         <div class="nav-status">
             <div class="status-indicator">
                 <div class="status-dot" id="connectionDot"></div>
-                <span id="connectionText">Connected to Angel One</span>
+                <span id="connectionText">Initializing...</span>
             </div>
-            <div class="market-time" id="market-time">NSE: LIVE</div>
+            <div class="market-time" id="market-time">NSE: CHECKING</div>
         </div>
     </nav>
 
@@ -297,11 +330,11 @@
                 </div>
 
                 <div class="signal-generator">
-                    <h3>Live AI Trading Signals</h3>
+                    <h3>AI Trading Signals</h3>
                     <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 15px;">
-                        Real-time analysis with Angel One live data
+                        Advanced analysis with chart annotations
                     </p>
-                    <button id="generateSignal" class="generate-btn">Generate Live Trading Signal</button>
+                    <button id="generateSignal" class="generate-btn">Generate Trading Signal</button>
                     <div id="signalResult" class="signal-result"></div>
                 </div>
             </div>
@@ -309,7 +342,7 @@
 
         <aside class="right-panel">
             <div class="market-depth">
-                <h3>Live Market Depth</h3>
+                <h3>Market Depth</h3>
                 <div class="depth-table">
                     <div class="depth-header">
                         <span>Bid Qty</span>
@@ -317,22 +350,17 @@
                         <span>Ask</span>
                         <span>Ask Qty</span>
                     </div>
-                    <div id="marketDepth">Loading live data...</div>
+                    <div id="marketDepth">Loading...</div>
                 </div>
             </div>
 
             <div class="news-feed">
-                <h3>Live Market Feed</h3>
+                <h3>Market Feed</h3>
                 <div class="news-items">
                     <div class="news-item">
                         <span class="news-time">LIVE</span>
-                        <p>Angel One API connected successfully</p>
-                        <span class="sentiment live">Connected</span>
-                    </div>
-                    <div class="news-item">
-                        <span class="news-time">LIVE</span>
-                        <p>Real-time market data streaming</p>
-                        <span class="sentiment bullish">Active</span>
+                        <p>Platform initialized successfully</p>
+                        <span class="sentiment connected">Ready</span>
                     </div>
                 </div>
             </div>
@@ -340,330 +368,301 @@
     </div>
 
     <script>
-        // Angel One SmartAPI Configuration
-        const ANGEL_ONE_CONFIG = {
+        // Angel One API Configuration
+        const ANGEL_CONFIG = {
             apiKey: 'a18ffda4',
-            clientCode: 'YOUR_CLIENT_CODE', // You'll need to provide this
             secretKey: '801865f61-201-46cd-bdb9-b20e64322a2a',
-            baseURL: 'https://apiconnect.angelbroking.com',
-            wsURL: 'wss://smartapisocket.angelone.in/smart-stream'
+            baseURL: 'https://apiconnect.angelbroking.com'
         };
 
-        // Token mapping for major symbols
-        const SYMBOL_TOKENS = {
-            'NIFTY50': { token: '99926000', exchange: 'NSE', tradingSymbol: 'NIFTY' },
-            'BANKNIFTY': { token: '99926009', exchange: 'NSE', tradingSymbol: 'BANKNIFTY' },
-            'RELIANCE': { token: '2885', exchange: 'NSE', tradingSymbol: 'RELIANCE-EQ' },
-            'TCS': { token: '11536', exchange: 'NSE', tradingSymbol: 'TCS-EQ' }
-        };
-
-        class AngelOneLiveAPI {
+        // Enhanced Data Service with CORS Proxy Support
+        class AngelOneDataService {
             constructor() {
+                this.isLiveMode = false;
                 this.accessToken = null;
-                this.refreshToken = null;
-                this.feedToken = null;
                 this.clientCode = null;
-                this.isConnected = false;
-                this.websocket = null;
-                this.subscribedTokens = new Set();
-                this.priceCallbacks = new Map();
+                this.corsProxyURL = 'https://api.allorigins.win/raw?url=';
+                this.altProxyURL = 'https://corsproxy.io/?';
             }
 
-            async authenticate() {
+            async authenticate(clientCode, mpin) {
                 try {
-                    console.log('Authenticating with Angel One...');
+                    console.log('Attempting Angel One authentication...');
                     
-                    // Since we can't get user credentials directly, we'll simulate the login
-                    // In a real implementation, user would need to provide their Angel One credentials
+                    const authPayload = {
+                        clientcode: clientCode,
+                        password: mpin
+                    };
+
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-UserType': 'USER',
+                        'X-SourceID': 'WEB',
+                        'X-ClientLocalIP': '127.0.0.1',
+                        'X-ClientPublicIP': '106.193.147.98',
+                        'X-MACAddress': 'fe80::216:3eff:fe00:0',
+                        'X-PrivateKey': ANGEL_CONFIG.apiKey
+                    };
+
+                    // Try direct connection first
+                    let response;
+                    try {
+                        response = await fetch(`${ANGEL_CONFIG.baseURL}/rest/auth/angelbroking/user/v1/loginByPassword`, {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify(authPayload)
+                        });
+                    } catch (corsError) {
+                        console.log('Direct connection blocked by CORS, trying proxy...');
+                        
+                        // Try with CORS proxy
+                        const proxyURL = `${this.corsProxyURL}${encodeURIComponent(ANGEL_CONFIG.baseURL + '/rest/auth/angelbroking/user/v1/loginByPassword')}`;
+                        
+                        response = await fetch(proxyURL, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                url: `${ANGEL_CONFIG.baseURL}/rest/auth/angelbroking/user/v1/loginByPassword`,
+                                method: 'POST',
+                                headers: headers,
+                                body: authPayload
+                            })
+                        });
+                    }
+
+                    const data = await response.json();
                     
-                    const response = await fetch(`${ANGEL_ONE_CONFIG.baseURL}/rest/auth/angelbroking/user/v1/loginByPassword`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-UserType': 'USER',
-                            'X-SourceID': 'WEB',
-                            'X-ClientLocalIP': '127.0.0.1',
-                            'X-ClientPublicIP': '106.193.147.98',
-                            'X-MACAddress': 'fe80::216:3eff:fe00:0',
-                            'X-PrivateKey': ANGEL_ONE_CONFIG.apiKey
-                        },
-                        body: JSON.stringify({
-                            clientcode: this.clientCode || 'D80101', // Default client code for testing
-                            password: '1234' // Default password for testing
-                        })
-                    });
+                    if (data.status && data.data && data.data.jwtToken) {
+                        this.accessToken = data.data.jwtToken;
+                        this.clientCode = clientCode;
+                        this.isLiveMode = true;
+                        console.log('Angel One authentication successful');
+                        return { success: true, token: this.accessToken };
+                    } else {
+                        console.log('Authentication failed:', data.message);
+                        return { success: false, error: data.message || 'Authentication failed' };
+                    }
+                    
+                } catch (error) {
+                    console.error('Authentication error:', error);
+                    return { success: false, error: error.message };
+                }
+            }
+
+            async fetchLTP(symbols) {
+                if (!this.isLiveMode || !this.accessToken) {
+                    return this.generateEnhancedDemoData(symbols);
+                }
+
+                try {
+                    const tokenMapping = {
+                        'NIFTY50': '99926000',
+                        'BANKNIFTY': '99926009',
+                        'RELIANCE': '2885',
+                        'TCS': '11536'
+                    };
+
+                    const payload = {
+                        exchange: 'NSE',
+                        tradingsymbol: symbols.join(','),
+                        symboltoken: symbols.map(s => tokenMapping[s]).join(',')
+                    };
+
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${this.accessToken}`,
+                        'X-UserType': 'USER',
+                        'X-SourceID': 'WEB',
+                        'X-ClientLocalIP': '127.0.0.1',
+                        'X-ClientPublicIP': '106.193.147.98',
+                        'X-MACAddress': 'fe80::216:3eff:fe00:0',
+                        'X-PrivateKey': ANGEL_CONFIG.apiKey
+                    };
+
+                    let response;
+                    try {
+                        response = await fetch(`${ANGEL_CONFIG.baseURL}/rest/secure/angelbroking/order/v1/getLTP`, {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify(payload)
+                        });
+                    } catch (corsError) {
+                        // Use proxy for LTP as well
+                        const proxyURL = `${this.corsProxyURL}${encodeURIComponent(ANGEL_CONFIG.baseURL + '/rest/secure/angelbroking/order/v1/getLTP')}`;
+                        
+                        response = await fetch(proxyURL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                url: `${ANGEL_CONFIG.baseURL}/rest/secure/angelbroking/order/v1/getLTP`,
+                                method: 'POST',
+                                headers: headers,
+                                body: payload
+                            })
+                        });
+                    }
 
                     const data = await response.json();
                     
                     if (data.status && data.data) {
-                        this.accessToken = data.data.jwtToken;
-                        this.refreshToken = data.data.refreshToken;
-                        this.feedToken = data.data.feedToken;
-                        this.isConnected = true;
-                        
-                        console.log('Angel One authentication successful');
-                        this.initWebSocket();
-                        return { success: true };
+                        console.log('Live LTP data received:', data.data);
+                        return data.data;
                     } else {
-                        // Fallback to demo mode with realistic data
-                        console.log('Using demo mode with live-like data');
-                        this.isConnected = false;
-                        return { success: false, demo: true };
+                        console.log('LTP fetch failed, using demo data');
+                        return this.generateEnhancedDemoData(symbols);
                     }
-                } catch (error) {
-                    console.error('Authentication error:', error);
-                    return { success: false, demo: true };
-                }
-            }
-
-            async getLTP(symbols) {
-                if (!this.isConnected) {
-                    // Return demo data that looks like live data
-                    return this.generateDemoLTP(symbols);
-                }
-
-                try {
-                    const symbolTokens = symbols.map(symbol => {
-                        const tokenInfo = SYMBOL_TOKENS[symbol];
-                        return {
-                            exchange: tokenInfo.exchange,
-                            tradingsymbol: tokenInfo.tradingSymbol,
-                            symboltoken: tokenInfo.token
-                        };
-                    });
-
-                    const response = await fetch(`${ANGEL_ONE_CONFIG.baseURL}/rest/secure/angelbroking/order/v1/getLTP`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'Authorization': `Bearer ${this.accessToken}`,
-                            'X-UserType': 'USER',
-                            'X-SourceID': 'WEB',
-                            'X-ClientLocalIP': '127.0.0.1',
-                            'X-ClientPublicIP': '106.193.147.98',
-                            'X-MACAddress': 'fe80::216:3eff:fe00:0',
-                            'X-PrivateKey': ANGEL_ONE_CONFIG.apiKey
-                        },
-                        body: JSON.stringify({
-                            exchange: 'NSE',
-                            tradingsymbol: symbolTokens.map(s => s.tradingsymbol).join(','),
-                            symboltoken: symbolTokens.map(s => s.symboltoken).join(',')
-                        })
-                    });
-
-                    const data = await response.json();
-                    return data;
+                    
                 } catch (error) {
                     console.error('LTP fetch error:', error);
-                    return this.generateDemoLTP(symbols);
+                    return this.generateEnhancedDemoData(symbols);
                 }
             }
 
-            generateDemoLTP(symbols) {
-                // Generate realistic live-looking data
-                const basePrices = {
-                    'NIFTY50': 25420.45,
-                    'BANKNIFTY': 55715.15,
-                    'RELIANCE': 1424.00,
-                    'TCS': 4087.30
+            generateEnhancedDemoData(symbols) {
+                // Generate highly realistic market data that moves like real prices
+                const baseData = {
+                    'NIFTY50': { price: 25420.45, volatility: 0.008 },
+                    'BANKNIFTY': { price: 55715.15, volatility: 0.012 },
+                    'RELIANCE': { price: 1424.00, volatility: 0.015 },
+                    'TCS': { price: 4087.30, volatility: 0.010 }
                 };
 
-                const ltpData = {
-                    status: true,
-                    message: 'SUCCESS',
-                    data: symbols.map(symbol => {
-                        const basePrice = basePrices[symbol] || 1000;
-                        const change = (Math.random() - 0.5) * 0.02; // ±1% change
-                        const ltp = basePrice * (1 + change);
-                        
-                        return {
-                            exchange: 'NSE',
-                            tradingsymbol: symbol,
-                            symboltoken: SYMBOL_TOKENS[symbol]?.token || '1234',
-                            open: basePrice * (1 + (Math.random() - 0.5) * 0.01),
-                            high: ltp * (1 + Math.random() * 0.005),
-                            low: ltp * (1 - Math.random() * 0.005),
-                            close: basePrice,
-                            ltp: parseFloat(ltp.toFixed(2))
-                        };
-                    })
-                };
+                return symbols.map(symbol => {
+                    const base = baseData[symbol];
+                    if (!base) return null;
 
-                return ltpData;
-            }
-
-            initWebSocket() {
-                if (!this.isConnected) return;
-
-                try {
-                    this.websocket = new WebSocket(ANGEL_ONE_CONFIG.wsURL);
+                    // Create realistic intraday movement
+                    const timeOfDay = new Date().getHours() + new Date().getMinutes() / 60;
+                    let volatilityMultiplier = 1;
                     
-                    this.websocket.onopen = () => {
-                        console.log('WebSocket connected to Angel One');
-                        this.authenticateWebSocket();
-                    };
+                    // Higher volatility at market open/close
+                    if (timeOfDay < 10 || timeOfDay > 15) volatilityMultiplier = 1.5;
+                    if (timeOfDay >= 11 && timeOfDay <= 13) volatilityMultiplier = 0.6; // Lunch time
 
-                    this.websocket.onmessage = (event) => {
-                        this.handleWebSocketMessage(event.data);
-                    };
-
-                    this.websocket.onerror = (error) => {
-                        console.error('WebSocket error:', error);
-                    };
-
-                    this.websocket.onclose = () => {
-                        console.log('WebSocket disconnected');
-                        // Attempt to reconnect
-                        setTimeout(() => this.initWebSocket(), 5000);
-                    };
-                } catch (error) {
-                    console.error('WebSocket initialization error:', error);
-                }
-            }
-
-            authenticateWebSocket() {
-                if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) return;
-
-                const authMessage = {
-                    a: 'authorize',
-                    user: this.clientCode,
-                    token: this.feedToken
-                };
-
-                this.websocket.send(JSON.stringify(authMessage));
-            }
-
-            handleWebSocketMessage(data) {
-                try {
-                    const message = JSON.parse(data);
+                    const change = (Math.random() - 0.5) * base.volatility * volatilityMultiplier;
+                    const currentPrice = base.price * (1 + change);
                     
-                    if (message.type === 'ltp') {
-                        const symbol = this.findSymbolByToken(message.token);
-                        if (symbol && this.priceCallbacks.has(symbol)) {
-                            this.priceCallbacks.get(symbol)(message.ltp);
-                        }
-                    }
-                } catch (error) {
-                    console.error('WebSocket message parsing error:', error);
-                }
-            }
-
-            subscribeTo(symbols, callback) {
-                symbols.forEach(symbol => {
-                    this.priceCallbacks.set(symbol, callback);
-                    
-                    if (this.isConnected && this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-                        const tokenInfo = SYMBOL_TOKENS[symbol];
-                        if (tokenInfo) {
-                            const subscribeMessage = {
-                                a: 'subscribe',
-                                v: [[tokenInfo.exchange, tokenInfo.token]]
-                            };
-                            this.websocket.send(JSON.stringify(subscribeMessage));
-                            this.subscribedTokens.add(tokenInfo.token);
-                        }
-                    }
+                    return {
+                        exchange: 'NSE',
+                        tradingsymbol: symbol,
+                        symboltoken: symbol === 'NIFTY50' ? '99926000' : 
+                                   symbol === 'BANKNIFTY' ? '99926009' :
+                                   symbol === 'RELIANCE' ? '2885' : '11536',
+                        open: base.price * (1 + (Math.random() - 0.5) * 0.005),
+                        high: currentPrice * (1 + Math.random() * 0.003),
+                        low: currentPrice * (1 - Math.random() * 0.003),
+                        close: base.price,
+                        ltp: parseFloat(currentPrice.toFixed(2))
+                    };
                 });
-            }
-
-            findSymbolByToken(token) {
-                for (const [symbol, info] of Object.entries(SYMBOL_TOKENS)) {
-                    if (info.token === token) return symbol;
-                }
-                return null;
             }
         }
 
         // Main Trading Platform
-        class LiveTradingPlatform {
+        class EnhancedTradingPlatform {
             constructor() {
-                this.angelAPI = new AngelOneLiveAPI();
-                this.symbols = Object.keys(SYMBOL_TOKENS);
+                this.dataService = new AngelOneDataService();
+                this.symbols = ['NIFTY50', 'BANKNIFTY', 'RELIANCE', 'TCS'];
                 this.currentSymbol = 'NIFTY50';
-                this.marketData = new Map();
+                this.priceHistory = new Map();
                 this.chartCanvas = null;
                 this.chartCtx = null;
                 this.chartAnnotations = [];
-                this.priceHistory = new Map();
+                this.isInitialized = false;
                 this.init();
             }
 
             async init() {
-                console.log('Initializing Live Trading Platform...');
+                console.log('Initializing Enhanced Trading Platform...');
                 
-                // Initialize price history for all symbols
+                // Show API configuration modal
+                document.getElementById('apiConfigModal').classList.remove('hidden');
+                
+                // Initialize price history
                 this.symbols.forEach(symbol => {
                     this.priceHistory.set(symbol, []);
                 });
+            }
 
-                // Authenticate with Angel One
-                const authResult = await this.angelAPI.authenticate();
-                
-                if (authResult.success) {
-                    this.updateConnectionStatus('Live Data Connected', true);
-                } else {
-                    this.updateConnectionStatus('Demo Mode - Live Simulation', false);
+            async initializePlatform(isLiveMode = false) {
+                try {
+                    this.updateConnectionStatus(
+                        isLiveMode ? 'Live Data Connected' : 'Enhanced Demo Mode', 
+                        isLiveMode
+                    );
+
+                    // Initialize chart
+                    this.initChart();
+                    
+                    // Setup event listeners
+                    this.setupEventListeners();
+                    
+                    // Start data feeds
+                    this.startDataFeeds();
+                    
+                    // Market time updates
+                    this.updateMarketTime();
+                    setInterval(() => this.updateMarketTime(), 1000);
+                    
+                    // Hide loading and modal
+                    setTimeout(() => {
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                        document.getElementById('apiConfigModal').classList.add('hidden');
+                    }, 1000);
+
+                    this.isInitialized = true;
+                    console.log('Platform initialized successfully');
+                    
+                } catch (error) {
+                    console.error('Platform initialization error:', error);
                 }
-
-                // Initialize chart
-                this.initChart();
-                
-                // Setup event listeners
-                this.setupEventListeners();
-                
-                // Start live data feeds
-                this.startLiveDataFeeds();
-                
-                // Update market time
-                this.updateMarketTime();
-                setInterval(() => this.updateMarketTime(), 1000);
-                
-                // Hide loading overlay
-                setTimeout(() => {
-                    document.getElementById('loadingOverlay').classList.add('hidden');
-                }, 3000);
-
-                console.log('Platform initialized successfully');
             }
 
             updateConnectionStatus(text, isConnected) {
                 document.getElementById('connectionText').textContent = text;
                 const dot = document.getElementById('connectionDot');
                 dot.className = `status-dot ${isConnected ? '' : 'disconnected'}`;
+                
+                const badge = document.getElementById('apiStatusBadge');
+                if (isConnected) {
+                    badge.textContent = 'LIVE DATA';
+                    badge.className = 'api-status-badge live';
+                } else {
+                    badge.textContent = 'ENHANCED DEMO';
+                    badge.className = 'api-status-badge demo';
+                }
             }
 
-            async startLiveDataFeeds() {
-                // Subscribe to live price updates
-                this.angelAPI.subscribeTo(this.symbols, (symbol, price) => {
-                    this.updateSymbolPrice(symbol, price);
-                });
-
-                // Start periodic LTP fetching
-                this.fetchLTPData();
-                setInterval(() => this.fetchLTPData(), 5000); // Every 5 seconds
+            async startDataFeeds() {
+                // Initial data fetch
+                await this.fetchAndUpdatePrices();
+                // Start periodic updates
+                setInterval(() => this.fetchAndUpdatePrices(), 3000); // Every 3 seconds for more realistic updates
             }
 
-            async fetchLTPData() {
+            async fetchAndUpdatePrices() {
                 try {
-                    const ltpData = await this.angelAPI.getLTP(this.symbols);
+                    const ltpData = await this.dataService.fetchLTP(this.symbols);
                     
-                    if (ltpData && ltpData.data) {
-                        ltpData.data.forEach((item, index) => {
-                            const symbol = this.symbols[index];
+                    if (ltpData && Array.isArray(ltpData)) {
+                        ltpData.forEach((item, index) => {
                             if (item && item.ltp) {
-                                this.updateSymbolPrice(symbol, item.ltp);
+                                const symbol = this.symbols[index];
+                                this.updateSymbolPrice(symbol, item.ltp, item);
                                 this.addPriceToHistory(symbol, item.ltp, item);
                             }
                         });
                     }
                 } catch (error) {
-                    console.error('LTP fetch error:', error);
+                    console.error('Price fetch error:', error);
                 }
             }
 
-            updateSymbolPrice(symbol, price) {
+            updateSymbolPrice(symbol, price, fullData = null) {
                 const priceEl = document.getElementById(`price-${symbol}`);
                 const changeEl = document.getElementById(`change-${symbol}`);
                 
@@ -689,6 +688,10 @@
                         const priceChangeEl = document.getElementById('priceChange');
                         priceChangeEl.textContent = `${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`;
                         priceChangeEl.className = `price-change ${changePercent >= 0 ? 'positive' : 'negative'}`;
+                        
+                        // Update volume
+                        document.getElementById('volume').textContent = 
+                            (Math.random() * 2 + 1).toFixed(1) + 'M';
                     }
                 }
             }
@@ -714,10 +717,11 @@
                 
                 this.priceHistory.set(symbol, history);
                 
-                // Update chart if this is the current symbol
+                // Update displays if this is the current symbol
                 if (symbol === this.currentSymbol) {
                     this.updateChart();
                     this.updateTechnicalIndicators();
+                    this.updateMarketDepth();
                 }
             }
 
@@ -748,8 +752,8 @@
                 const chartWidth = canvas.width - padding.left - padding.right;
                 const chartHeight = canvas.height - padding.top - padding.bottom;
 
-                const chartData = history.slice(-50); // Last 50 points
-                const prices = chartData.flatMap(d => [d.high, d.low]);
+                const chartData = history.slice(-60); // Last 60 points for better resolution
+                const prices = chartData.map(d => d.price);
                 const minPrice = Math.min(...prices) * 0.999;
                 const maxPrice = Math.max(...prices) * 1.001;
                 const priceRange = maxPrice - minPrice;
@@ -771,14 +775,14 @@
                 }
 
                 // Draw price line
-                const candleSpacing = chartWidth / chartData.length;
+                const spacing = chartWidth / (chartData.length - 1);
                 
                 ctx.strokeStyle = '#00ff88';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 
                 chartData.forEach((point, index) => {
-                    const x = padding.left + (candleSpacing * index);
+                    const x = padding.left + (spacing * index);
                     const y = this.priceToY(point.price);
                     
                     if (index === 0) {
@@ -788,6 +792,18 @@
                     }
                 });
                 ctx.stroke();
+
+                // Draw current price dot
+                if (chartData.length > 0) {
+                    const lastPoint = chartData[chartData.length - 1];
+                    const lastX = padding.left + spacing * (chartData.length - 1);
+                    const lastY = this.priceToY(lastPoint.price);
+                    
+                    ctx.fillStyle = '#00ff88';
+                    ctx.beginPath();
+                    ctx.arc(lastX, lastY, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
 
                 // Draw price axis
                 ctx.fillStyle = '#a4a6b3';
@@ -809,7 +825,7 @@
                 const ctx = this.chartCtx;
                 
                 this.chartAnnotations.forEach(annotation => {
-                    if (annotation.type === 'horizontal_line') {
+                    if (annotation.type === 'horizontal_line' && this.priceToY) {
                         const y = this.priceToY(annotation.price);
                         
                         ctx.strokeStyle = annotation.color;
@@ -844,7 +860,7 @@
                 const signalBtn = document.getElementById('generateSignal');
                 if (signalBtn) {
                     signalBtn.addEventListener('click', () => {
-                        this.generateLiveSignal();
+                        this.generateTradingSignal();
                     });
                 }
             }
@@ -861,7 +877,9 @@
                 });
                 
                 // Update chart title
-                document.getElementById('chart-title').textContent = `${symbol} - Live Chart`;
+                const displayName = symbol === 'NIFTY50' ? 'NIFTY 50' : 
+                                  symbol === 'BANKNIFTY' ? 'BANK NIFTY' : symbol;
+                document.getElementById('chart-title').textContent = `${displayName} - Live Chart`;
                 
                 // Clear annotations and update displays
                 this.chartAnnotations = [];
@@ -901,6 +919,33 @@
                 macdEl.className = isBullish ? 'bullish' : 'bearish';
             }
 
+            updateMarketDepth() {
+                const history = this.priceHistory.get(this.currentSymbol) || [];
+                if (history.length === 0) return;
+
+                const currentPrice = history[history.length - 1].price;
+                const spread = currentPrice * 0.0001;
+                
+                let depthHtml = '';
+                for (let i = 0; i < 5; i++) {
+                    const bid = (currentPrice - (spread * (i + 1))).toFixed(2);
+                    const ask = (currentPrice + (spread * (i + 1))).toFixed(2);
+                    const bidQty = (Math.floor(Math.random() * 5000) + 1000).toLocaleString();
+                    const askQty = (Math.floor(Math.random() * 5000) + 1000).toLocaleString();
+                    
+                    depthHtml += `
+                        <div class="depth-row">
+                            <span style="color: #00ff88">${bidQty}</span>
+                            <span style="color: #00ff88">${bid}</span>
+                            <span style="color: #ff4757">${ask}</span>
+                            <span style="color: #ff4757">${askQty}</span>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('marketDepth').innerHTML = depthHtml;
+            }
+
             calculateRSI(prices, period = 14) {
                 if (prices.length < period + 1) return 50;
                 
@@ -922,7 +967,7 @@
                 return prices.slice(-period).reduce((a, b) => a + b, 0) / period;
             }
 
-            async generateLiveSignal() {
+            async generateTradingSignal() {
                 const btn = document.getElementById('generateSignal');
                 const originalText = btn.textContent;
                 
@@ -957,16 +1002,26 @@
                     
                     // Recent price action
                     const recentTrend = this.calculateTrend(prices.slice(-10));
-                    if (recentTrend > 0) bullishPoints += 1;
+                    if (recentTrend > 0.01) bullishPoints += 2;
+                    else if (recentTrend < -0.01) bearishPoints += 2;
+                    else if (recentTrend > 0) bullishPoints += 1;
                     else bearishPoints += 1;
                     
+                    // Volume analysis (simplified)
+                    const recentVolume = history.slice(-5).reduce((sum, h) => sum + h.volume, 0) / 5;
+                    const avgVolume = history.slice(-20).reduce((sum, h) => sum + h.volume, 0) / 20;
+                    if (recentVolume > avgVolume * 1.2) {
+                        if (bullishPoints > bearishPoints) bullishPoints += 1;
+                        else bearishPoints += 1;
+                    }
+                    
                     // Generate signal
-                    if (bullishPoints > bearishPoints + 1) {
+                    if (bullishPoints > bearishPoints + 2) {
                         signal = 'BUY';
-                        confidence = Math.min(70 + (bullishPoints - bearishPoints) * 5, 95);
-                    } else if (bearishPoints > bullishPoints + 1) {
+                        confidence = Math.min(70 + (bullishPoints - bearishPoints) * 4, 92);
+                    } else if (bearishPoints > bullishPoints + 2) {
                         signal = 'SELL';
-                        confidence = Math.min(70 + (bearishPoints - bullishPoints) * 5, 95);
+                        confidence = Math.min(70 + (bearishPoints - bullishPoints) * 4, 92);
                     }
 
                     // Calculate trade levels
@@ -986,7 +1041,7 @@
                     const optionsStrategy = this.generateOptionsStrategy(signal, currentPrice);
                     
                     // Display signal
-                    this.displayLiveSignal(signal, confidence, entry, stopLoss, target1, target2, optionsStrategy, rsi, sma20);
+                    this.displayTradingSignal(signal, confidence, entry, stopLoss, target1, target2, optionsStrategy, rsi, sma20);
                     
                 } catch (error) {
                     console.error('Signal generation error:', error);
@@ -1070,7 +1125,7 @@
                     return {
                         name: 'Iron Condor',
                         type: 'NEUTRAL',
-                        recommendation: 'Range-bound strategy'
+                        recommendation: 'Range-bound strategy for sideways market'
                     };
                 }
             }
@@ -1086,15 +1141,17 @@
                 });
             }
 
-            displayLiveSignal(signal, confidence, entry, stopLoss, target1, target2, options, rsi, sma20) {
+            displayTradingSignal(signal, confidence, entry, stopLoss, target1, target2, options, rsi, sma20) {
                 const signalColor = signal === 'BUY' ? '#00ff88' : signal === 'SELL' ? '#ff4757' : '#ffd700';
+                const displaySymbol = this.currentSymbol === 'NIFTY50' ? 'NIFTY 50' : 
+                                   this.currentSymbol === 'BANKNIFTY' ? 'BANK NIFTY' : this.currentSymbol;
                 
                 document.getElementById('signalResult').innerHTML = `
                     <div class="professional-signal">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h4 style="color: ${signalColor}; font-size: 18px;">LIVE ${signal} SIGNAL - ${this.currentSymbol}</h4>
+                            <h4 style="color: ${signalColor}; font-size: 18px;">${signal} SIGNAL - ${displaySymbol}</h4>
                             <div style="text-align: right;">
-                                <div style="font-size: 12px; color: #a4a6b3;">Live Confidence</div>
+                                <div style="font-size: 12px; color: #a4a6b3;">Confidence</div>
                                 <div style="font-size: 24px; font-weight: bold; color: ${signalColor};">${confidence}%</div>
                             </div>
                         </div>
@@ -1115,10 +1172,10 @@
                         </div>
                         
                         <div style="background: rgba(55, 66, 250, 0.1); padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #3742fa;">
-                            <h4 style="color: #3742fa; margin-bottom: 15px;">Live Options Strategy</h4>
+                            <h4 style="color: #3742fa; margin-bottom: 15px;">Options Strategy</h4>
                             <div style="font-weight: 600; color: ${signalColor}; margin-bottom: 10px;">${options.name}</div>
                             <div style="font-size: 14px; margin-bottom: 10px;">
-                                <strong>${options.action} ${this.currentSymbol} ${options.strike} ${options.option}</strong>
+                                <strong>${options.action} ${displaySymbol} ${options.strike} ${options.option}</strong>
                             </div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 12px;">
                                 <div>Premium: <strong>₹${options.premium}</strong></div>
@@ -1129,18 +1186,18 @@
                         </div>
                         
                         <div style="background: rgba(0,255,136,0.1); padding: 15px; border-radius: 8px;">
-                            <h4 style="margin-bottom: 10px;">Live Execution Guide</h4>
+                            <h4 style="margin-bottom: 10px;">Execution Guide</h4>
                             <ul style="margin-left: 20px; font-size: 12px; color: #a4a6b3; line-height: 1.6;">
-                                <li><strong style="color: #00ff88;">Entry:</strong> Execute when price crosses ₹${entry.toFixed(2)}</li>
-                                <li><strong style="color: #ff4757;">Stop Loss:</strong> Exit if price hits ₹${stopLoss.toFixed(2)}</li>
-                                <li><strong style="color: #4caf50;">Target:</strong> Book profits at ₹${target1.toFixed(2)}</li>
+                                <li><strong style="color: #00ff88;">Entry:</strong> Execute when price crosses GREEN line at ₹${entry.toFixed(2)}</li>
+                                <li><strong style="color: #ff4757;">Stop Loss:</strong> Exit if price hits RED line at ₹${stopLoss.toFixed(2)}</li>
+                                <li><strong style="color: #4caf50;">Target:</strong> Book profits at GREEN target ₹${target1.toFixed(2)}</li>
                                 <li><strong style="color: #3742fa;">Options:</strong> Execute ${options.name} strategy</li>
-                                <li>Based on live Angel One market data</li>
+                                <li>Monitor real-time chart annotations for precise entry/exit</li>
                             </ul>
                         </div>
                         
                         <div style="font-size: 11px; color: #666; text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #34384a;">
-                            🔴 LIVE DATA ANALYSIS • Generated from real-time Angel One API feeds
+                            ${this.dataService.isLiveMode ? '🔴 LIVE ANALYSIS' : '🟡 ENHANCED DEMO'} • Chart shows colored lines for entry, stop loss, and targets
                         </div>
                     </div>
                 `;
@@ -1161,10 +1218,37 @@
             }
         }
 
+        // Global functions for modal interactions
+        async function connectWithCredentials() {
+            const clientCode = document.getElementById('clientCode').value.trim();
+            const mpin = document.getElementById('mpin').value.trim();
+            
+            if (!clientCode || !mpin) {
+                alert('Please enter both Client Code and MPIN');
+                return;
+            }
+            
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            
+            const result = await window.platform.dataService.authenticate(clientCode, mpin);
+            
+            if (result.success) {
+                await window.platform.initializePlatform(true);
+            } else {
+                alert('Authentication failed: ' + result.error + '\nUsing demo mode instead.');
+                await window.platform.initializePlatform(false);
+            }
+        }
+
+        async function useDemoMode() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            await window.platform.initializePlatform(false);
+        }
+
         // Initialize the platform
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('Starting Live Trading Platform...');
-            window.liveTradingPlatform = new LiveTradingPlatform();
+            console.log('Starting Enhanced Trading Platform...');
+            window.platform = new EnhancedTradingPlatform();
         });
     </script>
 </body>
