@@ -28,7 +28,19 @@ async def root():
         "message": "Doravaru Trading Platform - LIVE Angel One Integration",
         "status": "active",
         "features": ["live_data", "totp_auth", "technical_analysis", "ai_signals"],
-        "version": "2.0.0"
+        "version": "2.0.0",
+        "available_endpoints": [
+            "/health",
+            "/api/auth/test", 
+            "/api/auth/debug",
+            "/api/live-data/{symbol}",
+            "/api/batch-ltp",
+            "/api/market-data/{symbol}",
+            "/api/analysis/{symbol}",
+            "/api/signals/{symbol}",
+            "/api/symbols",
+            "/api/dashboard"
+        ]
     }
 
 @app.get("/health")
@@ -37,19 +49,76 @@ async def health_check():
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "service": "Doravaru Trading Platform",
-        "live_data": "enabled"
+        "live_data": "enabled",
+        "angel_one_config": {
+            "api_key_set": bool(angel_service.api_key),
+            "client_code_set": bool(angel_service.client_code), 
+            "mpin_set": bool(angel_service.mpin),
+            "totp_secret_set": bool(angel_service.totp_secret)
+        }
     }
 
 @app.post("/api/auth/test")
 async def test_angel_auth():
-    """Test Angel One authentication with TOTP"""
+    """Test Angel One authentication with enhanced TOTP"""
     try:
-        logger.info("🔐 Testing Angel One TOTP authentication...")
+        logger.info("🔐 Testing enhanced Angel One TOTP authentication...")
         result = await angel_service.authenticate()
+        
+        # Add more context to the response
+        result["test_endpoint"] = "/api/auth/test"
+        result["timestamp"] = datetime.now().isoformat()
+        
         return result
     except Exception as e:
         logger.error(f"Auth test failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        error_response = {
+            "success": False,
+            "error": str(e),
+            "test_endpoint": "/api/auth/test",
+            "timestamp": datetime.now().isoformat()
+        }
+        return error_response
+
+@app.get("/api/auth/debug")
+async def debug_auth():
+    """Debug authentication with detailed logging"""
+    try:
+        logger.info("🔍 Starting debug authentication...")
+        
+        # Check configuration
+        config_status = {
+            "api_key": "✅ Set" if angel_service.api_key else "❌ Missing",
+            "client_code": "✅ Set" if angel_service.client_code else "❌ Missing", 
+            "mpin": "✅ Set" if angel_service.mpin else "❌ Missing",
+            "totp_secret": "✅ Set" if angel_service.totp_secret else "❌ Missing"
+        }
+        
+        # Test TOTP generation
+        try:
+            totp_codes = angel_service.generate_totp_with_time_drift()
+            totp_status = "✅ Generated successfully"
+        except Exception as e:
+            totp_codes = []
+            totp_status = f"❌ Failed: {str(e)}"
+        
+        return {
+            "success": True,
+            "configuration": config_status,
+            "totp_generation": totp_status,
+            "totp_codes_count": len(totp_codes),
+            "client_code": angel_service.client_code,
+            "api_key_prefix": angel_service.api_key[:8] + "..." if angel_service.api_key else "Not set",
+            "message": "Check backend logs for detailed information"
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# Add a simple auth endpoint that matches frontend expectations
+@app.post("/api/auth/angelone1") 
+async def auth_angelone1():
+    """Legacy auth endpoint for frontend compatibility"""
+    return await test_angel_auth()
 
 @app.get("/api/live-data/{symbol}")
 async def get_live_market_data(
@@ -183,22 +252,19 @@ def calculate_signal_confidence(signal: dict, indicators: dict, trend: str, live
     
     # Volume confirmation (if available)
     if live_data.get("volume", 0) > 0:
-        # High volume adds confidence
         confidence += 5
     
     # Price movement confirmation
     change_percent = live_data.get("change_percent", 0)
-    if signal["type"] == "BUY" and change_percent < -1:  # Buy on dip
+    if signal["type"] == "BUY" and change_percent < -1:
         confidence += 10
-    elif signal["type"] == "SELL" and change_percent > 1:  # Sell on rise
+    elif signal["type"] == "SELL" and change_percent > 1:
         confidence += 10
     
     return min(max(confidence, 0), 100)
 
 def format_symbol_name(symbol: str) -> str:
     """Format symbol name properly in Python"""
-    # Convert camelCase to spaced words
-    # HDFCBANK -> HDFC BANK, TCS -> TCS, etc.
     formatted = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', symbol)
     formatted = re.sub(r'([a-z])([A-Z])', r'\1 \2', formatted)
     return formatted.strip()
@@ -208,7 +274,6 @@ async def get_available_symbols():
     """Get available symbols with Angel One tokens"""
     try:
         if angel_service.symbol_master is not None:
-            # Get popular symbols from symbol master
             popular_symbols = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'SBIN', 'LT', 'WIPRO']
             
             symbols = []
@@ -217,12 +282,11 @@ async def get_available_symbols():
                 if token:
                     symbols.append({
                         "symbol": symbol,
-                        "name": format_symbol_name(symbol),  # ✅ Fixed Python function
+                        "name": format_symbol_name(symbol),
                         "token": token,
                         "exchange": "NSE"
                     })
             
-            # Add indices
             symbols.extend([
                 {"symbol": "NIFTY50", "name": "Nifty 50 Index", "token": "99926000", "exchange": "NSE"},
                 {"symbol": "BANKNIFTY", "name": "Bank Nifty Index", "token": "99926009", "exchange": "NSE"}
@@ -230,7 +294,6 @@ async def get_available_symbols():
             
             return {"symbols": symbols, "source": "angel_one_master"}
         else:
-            # Fallback symbols
             return {
                 "symbols": [
                     {"symbol": "RELIANCE", "name": "Reliance Industries", "exchange": "NSE"},
@@ -275,23 +338,3 @@ async def get_dashboard_data():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-    @app.get("/api/auth/debug")
-async def debug_auth():
-    """Debug authentication with detailed logging"""
-    try:
-        logger.info("🔍 Starting debug authentication...")
-        
-        # Test TOTP generation
-        totp_codes = angel_service.generate_totp_with_time_drift()
-        
-        return {
-            "success": True,
-            "totp_codes_generated": totp_codes,
-            "client_code": angel_service.client_code,
-            "mpin_set": bool(angel_service.mpin),
-            "secret_set": bool(angel_service.totp_secret),
-            "message": "Check logs for detailed authentication attempts"
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
