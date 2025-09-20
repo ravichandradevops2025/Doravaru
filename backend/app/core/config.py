@@ -1,26 +1,20 @@
 import os
 from pydantic_settings import BaseSettings
-from typing import Optional
 
 class Settings(BaseSettings):
-    # Database - SQLite for simplicity
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./doravaru.db")
+    # Angel One API Configuration
+    ANGEL_API_KEY: str = "a18ffda4"
+    ANGEL_SECRET: str = "801865f61-201-46cd-bdb9-b20e64322a2a"
+    ANGEL_CLIENT_CODE: str = "V127611"
+    ANGEL_MPIN: str = os.getenv("ANGEL_MPIN", "")  # Set this in environment
+    ANGEL_TOTP_SECRET: str = "YA2QSAUCI6L6IDCYMT6BQUGDKU"
     
-    # API Keys
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "demo-key")
+    # API Configuration
+    ANGEL_BASE_URL: str = "https://apiconnect.angelone.in"
     
-    # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
-    
-    # CORS - allow GitHub Pages domain
-    ALLOWED_ORIGINS: list = [
-        "http://localhost:3000",
-        "https://yourusername.github.io",  # Replace with your GitHub username
-        "https://*.github.io"
-    ]
-    
-    # Environment
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production")
+    # Application Configuration
+    APP_NAME: str = "Doravaru Trading Platform"
+    DEBUG: bool = True
     
     class Config:
         env_file = ".env"
