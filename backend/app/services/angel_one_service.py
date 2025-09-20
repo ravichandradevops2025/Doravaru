@@ -3,7 +3,7 @@ import requests
 import json
 import logging
 from typing import Dict, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 from ..core.config import settings
 
@@ -30,7 +30,7 @@ class AngelOneService:
             url = 'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json'
             response = requests.get(url, timeout=30)
             if response.status_code == 200:
-                self.symbol_master = response.json()  # Keep as list of dicts
+                self.symbol_master = response.json()
                 logger.info(f"✅ Loaded {len(self.symbol_master)} symbols from Angel One")
             else:
                 logger.error("Failed to load symbol master")
@@ -78,8 +78,44 @@ class AngelOneService:
             logger.error(f"Token lookup failed for {symbol}: {e}")
             return None
     
+    def generate_totp_with_time_drift(self) -> List[str]:
+        """Generate TOTP codes with time drift compensation"""
+        try:
+            totp = pyotp.TOTP(self.totp_secret)
+            current_time = int(time.time())
+            
+            # Generate TOTP for current time and ±90 seconds (3 windows)
+            totp_codes = []
+            
+            # Current time
+            current_totp = totp.at(current_time)
+            totp_codes.append(current_totp)
+            
+            # Past time (30 seconds ago)
+            past_totp = totp.at(current_time - 30)
+            totp_codes.append(past_totp)
+            
+            # Future time (30 seconds ahead)
+            future_totp = totp.at(current_time + 30)
+            totp_codes.append(future_totp)
+            
+            # Past time (60 seconds ago)
+            past2_totp = totp.at(current_time - 60)
+            totp_codes.append(past2_totp)
+            
+            # Future time (60 seconds ahead)
+            future2_totp = totp.at(current_time + 60)
+            totp_codes.append(future2_totp)
+            
+            logger.info(f"Generated TOTP codes: {totp_codes}")
+            return totp_codes
+            
+        except Exception as e:
+            logger.error(f"TOTP generation failed: {e}")
+            raise
+    
     def generate_totp(self) -> str:
-        """Generate current TOTP using the secret key"""
+        """Generate current TOTP (legacy method)"""
         try:
             totp = pyotp.TOTP(self.totp_secret)
             current_totp = totp.now()
@@ -107,51 +143,83 @@ class AngelOneService:
             
         return headers
     
-    async def authenticate(self) -> Dict:
-        """Authenticate with Angel One API using TOTP"""
+    async def authenticate_with_retry(self) -> Dict:
+        """Enhanced authentication with TOTP time drift compensation"""
         try:
-            current_totp = self.generate_totp()
-            
-            payload = {
-                "clientcode": self.client_code,
-                "password": self.mpin,
-                "totp": current_totp
-            }
+            # Generate multiple TOTP codes to handle time drift
+            totp_codes = self.generate_totp_with_time_drift()
             
             headers = self.get_auth_headers()
             
-            logger.info(f"🔐 Authenticating with Angel One API...")
+            logger.info("🔐 Starting enhanced Angel One authentication with time drift compensation...")
             
-            response = requests.post(
-                f"{self.base_url}/rest/auth/angelbroking/user/v1/loginByPassword",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
+            # Try each TOTP code
+            for attempt, totp_code in enumerate(totp_codes, 1):
+                try:
+                    payload = {
+                        "clientcode": self.client_code,
+                        "password": self.mpin,
+                        "totp": totp_code
+                    }
+                    
+                    logger.info(f"Attempt {attempt}/5: Testing TOTP {totp_code}")
+                    
+                    response = requests.post(
+                        f"{self.base_url}/rest/auth/angelbroking/user/v1/loginByPassword",
+                        headers=headers,
+                        json=payload,
+                        timeout=30
+                    )
+                    
+                    logger.info(f"Auth response status: {response.status_code}")
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('status'):
+                            self.access_token = data['data']['jwtToken']
+                            self.refresh_token = data['data']['refreshToken']
+                            self.feed_token = data['data'].get('feedToken')
+                            logger.info(f"✅ Authentication successful with TOTP {totp_code} on attempt {attempt}!")
+                            return {
+                                "success": True, 
+                                "message": f"Authentication successful on attempt {attempt}", 
+                                "totp_used": totp_code,
+                                "data": data
+                            }
+                        else:
+                            error_msg = data.get('message', 'Authentication failed')
+                            logger.warning(f"⚠️ Attempt {attempt} failed: {error_msg}")
+                            
+                            # If it's not a TOTP error, break early
+                            if "totp" not in error_msg.lower():
+                                return {"success": False, "error": error_msg}
+                    else:
+                        logger.warning(f"⚠️ HTTP {response.status_code} on attempt {attempt}")
+                        
+                    # Small delay between attempts to avoid rate limiting
+                    if attempt < len(totp_codes):
+                        time.sleep(2)
+                        
+                except Exception as e:
+                    logger.error(f"❌ Attempt {attempt} exception: {e}")
+                    continue
             
-            logger.info(f"Auth response status: {response.status_code}")
+            # All attempts failed
+            return {
+                "success": False, 
+                "error": "Authentication failed with all TOTP codes. Please check your MPIN and ensure time sync.",
+                "attempts": len(totp_codes)
+            }
             
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status'):
-                    self.access_token = data['data']['jwtToken']
-                    self.refresh_token = data['data']['refreshToken']
-                    self.feed_token = data['data'].get('feedToken')
-                    logger.info("✅ Angel One authentication successful!")
-                    return {"success": True, "message": "Authentication successful", "data": data}
-                else:
-                    error_msg = data.get('message', 'Authentication failed')
-                    logger.error(f"❌ Authentication failed: {error_msg}")
-                    return {"success": False, "error": error_msg}
-            else:
-                error_msg = f"HTTP {response.status_code}: {response.text}"
-                logger.error(f"❌ HTTP Error: {error_msg}")
-                return {"success": False, "error": error_msg}
-                
         except Exception as e:
             logger.error(f"❌ Authentication exception: {e}")
             return {"success": False, "error": str(e)}
     
+    async def authenticate(self) -> Dict:
+        """Main authentication method with fallback"""
+        return await self.authenticate_with_retry()
+    
+    # ... rest of the methods remain the same (get_live_market_data, etc.)
     async def get_live_market_data(self, symbol: str, exchange: str = "NSE") -> Dict:
         """Get REAL LIVE market data from Angel One API"""
         try:

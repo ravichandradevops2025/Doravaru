@@ -275,3 +275,23 @@ async def get_dashboard_data():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    @app.get("/api/auth/debug")
+async def debug_auth():
+    """Debug authentication with detailed logging"""
+    try:
+        logger.info("🔍 Starting debug authentication...")
+        
+        # Test TOTP generation
+        totp_codes = angel_service.generate_totp_with_time_drift()
+        
+        return {
+            "success": True,
+            "totp_codes_generated": totp_codes,
+            "client_code": angel_service.client_code,
+            "mpin_set": bool(angel_service.mpin),
+            "secret_set": bool(angel_service.totp_secret),
+            "message": "Check logs for detailed authentication attempts"
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
