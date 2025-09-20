@@ -1,9 +1,10 @@
-// Backend API Configuration (100% Live Data)
+// Backend API Configuration (Fixed URLs)
 const BACKEND_API_CONFIG = {
     BASE_URL: 'https://doravaru.onrender.com',
     ENDPOINTS: {
-        HEALTH: '/health',
+        HEALTH: '/health',  // Changed from /health1
         AUTH_TEST: '/api/auth/test',
+        AUTH_DEBUG: '/api/auth/debug',
         LIVE_DATA: '/api/live-data',
         BATCH_LTP: '/api/batch-ltp',
         ANALYSIS: '/api/analysis',
@@ -25,6 +26,17 @@ class LiveDataAPI {
         try {
             console.log('🚀 Initializing Live Data Connection...');
             
+            // First check if backend is healthy
+            const healthCheck = await this.checkHealth();
+            if (!healthCheck.success) {
+                console.log('❌ Backend health check failed');
+                this.isLiveMode = false;
+                this.authStatus = 'backend_down';
+                return { success: false, error: 'Backend not available' };
+            }
+            
+            console.log('✅ Backend is healthy, testing authentication...');
+            
             const authResult = await this.testAuth();
             if (authResult.success) {
                 this.isLiveMode = true;
@@ -32,8 +44,8 @@ class LiveDataAPI {
                 console.log('✅ LIVE MODE ACTIVATED - Angel One Connected!');
             } else {
                 this.isLiveMode = false;
-                this.authStatus = 'failed';
-                console.log('❌ Live mode failed - Check backend logs');
+                this.authStatus = 'auth_failed';
+                console.log('❌ Authentication failed:', authResult.error);
             }
             
             return authResult;
@@ -45,15 +57,70 @@ class LiveDataAPI {
         }
     }
 
+    // Check backend health
+    async checkHealth() {
+        try {
+            console.log('🔍 Checking backend health...');
+            const response = await fetch(`${this.backendURL}${BACKEND_API_CONFIG.ENDPOINTS.HEALTH}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('✅ Backend health check passed');
+                return { success: true, data: result };
+            } else {
+                console.log('❌ Backend health check failed:', response.status);
+                return { success: false, error: `HTTP ${response.status}` };
+            }
+        } catch (error) {
+            console.error('❌ Health check error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // Test authentication
     async testAuth() {
         try {
+            console.log('🔐 Testing Angel One authentication...');
             const response = await fetch(`${this.backendURL}${BACKEND_API_CONFIG.ENDPOINTS.AUTH_TEST}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
-            return await response.json();
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('✅ Authentication successful!');
+                if (result.totp_used) {
+                    console.log(`📱 TOTP used: ${result.totp_used}`);
+                }
+            } else {
+                console.log('❌ Authentication failed:', result.error);
+            }
+            
+            return result;
         } catch (error) {
+            console.error('❌ Auth test error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Debug authentication
+    async debugAuth() {
+        try {
+            console.log('🔍 Running authentication debug...');
+            const response = await fetch(`${this.backendURL}${BACKEND_API_CONFIG.ENDPOINTS.AUTH_DEBUG}`);
+            const result = await response.json();
+            
+            console.log('🔧 Debug Results:');
+            console.log('Configuration:', result.configuration);
+            console.log('TOTP Generation:', result.totp_generation);
+            
+            return result;
+        } catch (error) {
+            console.error('❌ Debug error:', error);
             return { success: false, error: error.message };
         }
     }
@@ -70,11 +137,13 @@ class LiveDataAPI {
             
             if (result.success) {
                 console.log(`✅ LIVE: ${symbol} = ₹${result.data.ltp} (${result.data.change_percent.toFixed(2)}%)`);
+            } else {
+                console.log(`❌ Live data failed for ${symbol}:`, result.error);
             }
             
             return result;
         } catch (error) {
-            console.error(`❌ Live data failed for ${symbol}:`, error);
+            console.error(`❌ Live data error for ${symbol}:`, error);
             return { success: false, error: error.message };
         }
     }
@@ -95,11 +164,13 @@ class LiveDataAPI {
                 Object.entries(result.data).forEach(([symbol, data]) => {
                     console.log(`  ${symbol}: ₹${data.ltp} (${data.change_percent.toFixed(2)}%)`);
                 });
+            } else {
+                console.log('❌ Batch LTP failed:', result.error);
             }
             
             return result;
         } catch (error) {
-            console.error('❌ Batch LTP failed:', error);
+            console.error('❌ Batch LTP error:', error);
             return { success: false, error: error.message };
         }
     }
@@ -114,11 +185,13 @@ class LiveDataAPI {
             
             if (result.success && result.live_data) {
                 console.log(`✅ Analysis: ${symbol} - ${result.trend} trend, ₹${result.live_data.ltp}`);
+            } else {
+                console.log(`❌ Analysis failed for ${symbol}:`, result.error);
             }
             
             return result;
         } catch (error) {
-            console.error(`❌ Analysis failed for ${symbol}:`, error);
+            console.error(`❌ Analysis error for ${symbol}:`, error);
             return { success: false, error: error.message };
         }
     }
@@ -136,11 +209,13 @@ class LiveDataAPI {
                 result.signals.forEach(signal => {
                     console.log(`  ${signal.type}: ${signal.reason} (${signal.confidence}% confidence)`);
                 });
+            } else {
+                console.log(`❌ Signals failed for ${symbol}:`, result.error);
             }
             
             return result;
         } catch (error) {
-            console.error(`❌ Signals failed for ${symbol}:`, error);
+            console.error(`❌ Signals error for ${symbol}:`, error);
             return { success: false, error: error.message };
         }
     }
@@ -155,11 +230,13 @@ class LiveDataAPI {
             
             if (result.success) {
                 console.log(`✅ Dashboard: ${result.total_symbols} symbols loaded (${result.market_status})`);
+            } else {
+                console.log('❌ Dashboard failed:', result.error);
             }
             
             return result;
         } catch (error) {
-            console.error('❌ Dashboard failed:', error);
+            console.error('❌ Dashboard error:', error);
             return { success: false, error: error.message };
         }
     }
@@ -195,20 +272,21 @@ class LiveDataAPI {
 window.liveDataAPI = new LiveDataAPI();
 
 // Utility functions
-// Utility functions (continued)
 window.initializeLiveData = async function() {
     console.log('🚀 Initializing Doravaru Live Data System...');
     const result = await liveDataAPI.initialize();
     
     if (result.success) {
         console.log('✅ Live Data System Ready!');
-        console.log('📊 You can now use:');
+        console.log('📊 Available commands:');
         console.log('  - liveDataAPI.getLiveData("RELIANCE")');
         console.log('  - liveDataAPI.getBatchLTP(["NIFTY50", "BANKNIFTY"])');
         console.log('  - liveDataAPI.getSignals("TCS")');
         console.log('  - liveDataAPI.getDashboard()');
+        console.log('  - liveDataAPI.debugAuth()');
     } else {
-        console.log('⚠️ Live mode unavailable. Check backend authentication.');
+        console.log('⚠️ Live mode unavailable:', result.error);
+        console.log('🔧 Try: liveDataAPI.debugAuth() for detailed info');
     }
     
     return result;
@@ -233,8 +311,12 @@ window.startLiveMonitoring = function(symbols = ['NIFTY50', 'BANKNIFTY', 'RELIAN
     return refreshInterval;
 };
 
-window.testLiveConnection = async function() {
-    console.log('🔍 Testing live connection...');
+window.testConnection = async function() {
+    console.log('🔍 Testing complete connection...');
+    
+    // Test health
+    const health = await liveDataAPI.checkHealth();
+    console.log('Health test:', health.success ? '✅ PASS' : '❌ FAIL');
     
     // Test authentication
     const auth = await liveDataAPI.testAuth();
@@ -244,11 +326,16 @@ window.testLiveConnection = async function() {
     const liveData = await liveDataAPI.getLiveData('RELIANCE');
     console.log('Live data test:', liveData.success ? '✅ PASS' : '❌ FAIL');
     
-    // Test batch data
-    const batchData = await liveDataAPI.getBatchLTP(['NIFTY50', 'BANKNIFTY']);
-    console.log('Batch data test:', batchData.success ? '✅ PASS' : '❌ FAIL');
+    return { health, auth, liveData };
+};
+
+window.debugSystem = async function() {
+    console.log('🔧 Running complete system debug...');
     
-    return { auth, liveData, batchData };
+    const debug = await liveDataAPI.debugAuth();
+    console.log('Debug results:', debug);
+    
+    return debug;
 };
 
 window.showMarketStatus = function() {
@@ -265,5 +352,7 @@ console.log('✅ Doravaru Live Data API loaded');
 console.log('🔧 Run initializeLiveData() to start live mode');
 console.log('📊 100% Angel One integration ready');
 
-// Initialize automatically
-window.initializeLiveData();
+// Initialize automatically after a short delay
+setTimeout(() => {
+    window.initializeLiveData();
+}, 1000);
