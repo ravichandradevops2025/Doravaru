@@ -1,9 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Dict, Any
 import requests
-import json
 import logging
 from datetime import datetime
 import random
@@ -34,14 +32,6 @@ ANGEL_ONE_CONFIG = {
 access_token = None
 client_code = None
 
-# Pydantic models
-class AuthRequest(BaseModel):
-    client_code: str
-    totp: str
-
-class SymbolsRequest(BaseModel):
-    symbols: List[str]
-
 # Realistic data for fallback
 REALISTIC_DATA = {
     'NIFTY50': {'price': 25294.30, 'change': -0.08},
@@ -64,11 +54,17 @@ async def health_check():
     }
 
 @app.post("/api/auth/angelone")
-async def authenticate_angelone(request: AuthRequest):
+async def authenticate_angelone(request: Dict[str, Any]):
     global access_token, client_code
     
     try:
-        logger.info(f"Authentication attempt for client: {request.client_code}")
+        client_code_input = request.get("client_code")
+        totp_input = request.get("totp")
+        
+        if not client_code_input or not totp_input:
+            return {"success": False, "message": "Client code and TOTP are required"}
+        
+        logger.info(f"Authentication attempt for client: {client_code_input}")
         
         headers = {
             'Content-Type': 'application/json',
@@ -82,8 +78,8 @@ async def authenticate_angelone(request: AuthRequest):
         }
         
         payload = {
-            "clientcode": request.client_code,
-            "password": request.totp
+            "clientcode": client_code_input,
+            "password": totp_input
         }
         
         # Try Angel One API
@@ -98,7 +94,7 @@ async def authenticate_angelone(request: AuthRequest):
         
         if data.get('status') and data.get('data'):
             access_token = data['data']['jwtToken']
-            client_code = request.client_code
+            client_code = client_code_input
             logger.info("Angel One authentication successful")
             return {"success": True, "message": "Authentication successful"}
         else:
@@ -110,8 +106,12 @@ async def authenticate_angelone(request: AuthRequest):
         return {"success": False, "message": f"Authentication error: {str(e)}"}
 
 @app.post("/api/data/live-prices")
-async def get_live_prices(request: SymbolsRequest):
+async def get_live_prices(request: Dict[str, Any]):
     try:
+        symbols = request.get("symbols", [])
+        if not symbols:
+            return {"success": False, "message": "Symbols are required"}
+        
         # Try Angel One API if authenticated
         if access_token:
             try:
@@ -132,8 +132,8 @@ async def get_live_prices(request: SymbolsRequest):
                 
                 payload = {
                     "exchange": "NSE",
-                    "tradingsymbol": ",".join(request.symbols),
-                    "symboltoken": ",".join([token_mapping.get(s, '1234') for s in request.symbols])
+                    "tradingsymbol": ",".join(symbols),
+                    "symboltoken": ",".join([token_mapping.get(s, '1234') for s in symbols])
                 }
                 
                 response = requests.post(
@@ -147,7 +147,7 @@ async def get_live_prices(request: SymbolsRequest):
                 
                 if data.get('status') and data.get('data'):
                     formatted_data = []
-                    for i, symbol in enumerate(request.symbols):
+                    for i, symbol in enumerate(symbols):
                         if i < len(data['data']):
                             item = data['data'][i]
                             formatted_data.append({
@@ -173,7 +173,7 @@ async def get_live_prices(request: SymbolsRequest):
         realistic_data = []
         current_time = datetime.now()
         
-        for symbol in request.symbols:
+        for symbol in symbols:
             base_data = REALISTIC_DATA.get(symbol, {'price': 1000, 'change': 0})
             base_price = base_data['price']
             
@@ -212,11 +212,12 @@ async def get_live_prices(request: SymbolsRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/signals/generate")
-async def generate_signals(request: SymbolsRequest):
+async def generate_signals(request: Dict[str, Any]):
     try:
+        symbols = request.get("symbols", [])
         signals = {}
         
-        for symbol in request.symbols:
+        for symbol in symbols:
             # Simple signal generation logic
             base_data = REALISTIC_DATA.get(symbol, {'price': 1000, 'change': 0})
             current_price = base_data['price']
