@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
+import re
 from datetime import datetime
 from typing import List, Optional
 
@@ -194,6 +195,14 @@ def calculate_signal_confidence(signal: dict, indicators: dict, trend: str, live
     
     return min(max(confidence, 0), 100)
 
+def format_symbol_name(symbol: str) -> str:
+    """Format symbol name properly in Python"""
+    # Convert camelCase to spaced words
+    # HDFCBANK -> HDFC BANK, TCS -> TCS, etc.
+    formatted = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', symbol)
+    formatted = re.sub(r'([a-z])([A-Z])', r'\1 \2', formatted)
+    return formatted.strip()
+
 @app.get("/api/symbols")
 async def get_available_symbols():
     """Get available symbols with Angel One tokens"""
@@ -208,7 +217,7 @@ async def get_available_symbols():
                 if token:
                     symbols.append({
                         "symbol": symbol,
-                        "name": symbol.replace(/([A-Z])/g, ' $1').strip(),
+                        "name": format_symbol_name(symbol),  # ✅ Fixed Python function
                         "token": token,
                         "exchange": "NSE"
                     })
